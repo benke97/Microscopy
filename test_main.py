@@ -1,4 +1,5 @@
 from cmath import inf
+from pyexpat import XML_PARAM_ENTITY_PARSING_UNLESS_STANDALONE
 from ssl import ALERT_DESCRIPTION_HANDSHAKE_FAILURE
 from tarfile import TarError
 from turtle import shape
@@ -161,7 +162,9 @@ class Material:
         self.connection_classes = []
         self.segment_areas = []
         self.edge_lengths = []
+        self.edge_classes = []
         self.center_neighborhood_vectors = []
+        self.vertex_displacements = []
         self.central_vertex = 0
         self.primitive_vectors = np.zeros((2,2))
         self.neighbors = triangle_object['neighbors'].tolist()
@@ -175,8 +178,9 @@ class Material:
         self.calculate_edge_lengths()
         self.calculate_segment_areas()
         self.classify_segments()
+        self.set_edge_class()
+        self.calculate_vertex_displacement()
 
-        #self.find_primitive_vectors()
     def get_length(self,idx_1,idx_2):
         a = self.vertices[idx_1]
         b = self.vertices[idx_2]
@@ -190,17 +194,19 @@ class Material:
             b = self.get_length(trig[1],trig[2])
             c = self.get_length(trig[2],trig[0])
             s = (a+b+c)/2
-            print(i,math.sqrt(s*(s-a)*(s-b)*(s-c)))
+            #print(i,math.sqrt(s*(s-a)*(s-b)*(s-c)))
             self.segment_areas.append(math.sqrt(s*(s-a)*(s-b)*(s-c)))
             i = i+1
 
     def calculate_edge_lengths(self):
+        for edge in self.edges:
+            self.edge_lengths.append(self.get_length(edge[0],edge[1]))
         print('hello')
 
     def set_number_of_connections(self):
         for i in range(len(self.vertices)):
             self.number_of_connections.append(sum(vertex_pair.count(i) for vertex_pair in self.edges))
-            print(sum(vertex_pair.count(i) for vertex_pair in self.edges))
+            #print(sum(vertex_pair.count(i) for vertex_pair in self.edges))
 
     def set_central_vertex(self):
         vertex_array = np.array(self.vertices)
@@ -256,24 +262,134 @@ class Material:
                     i+=1
                 duplicate_bool = 1
                 classifier[j] = 99 #ignore 
-                print(classifier)
+                #print(classifier)
                 print('duplicate detected', i, self.vertices[i])
             self.connection_classes.append(classifier.tolist())
         if not duplicate_bool:
             print('no duplicates detected')
             
+    def set_edge_class(self):
+        i = 0
+        edge_class_list = [[] for _ in range(len(self.edges))]
+        #print(edge_class_list)
+        for connection_list in self.connections:
+            j = 0
+            for connection in connection_list:
+                if [i,connection] in self.edges:    
+                    edge_idx = self.edges.index([i,connection])
+                elif [connection,i] in self.edges:
+                    edge_idx = self.edges.index([connection,i])
+                #print(len(self.edges),edge_idx)
+                edge_class_list[edge_idx].append(self.connection_classes[i][j])
+                j +=1
+            i += 1        
+        self.edge_classes = edge_class_list
+    
+    def get_edge_index(self,vertex_idx1,vertex_idx2):
+        edge_idx = 0
+        if [vertex_idx1,vertex_idx2] in self.edges or [vertex_idx2,vertex_idx1] in self.edges:
+            if [vertex_idx1,vertex_idx2] in self.edges:    
+                edge_idx = self.edges.index([vertex_idx1,vertex_idx2])
+            elif [vertex_idx2,vertex_idx1] in self.edges:
+                edge_idx = self.edges.index([vertex_idx2,vertex_idx1])
+            return edge_idx
+        else:
+            raise ValueError('no segment between indices' + str(vertex_idx1) + 'and' + str(vertex_idx2))
 
+
+    def calculate_vertex_displacement(self):
+        displacement_list = []
+        for vertex in range(len(self.vertices)):
+            ideal_vector_list = []
+            vector_list = []
+  
+            for neighbor in self.connections[vertex]:
+                edge_idx = self.get_edge_index(vertex,neighbor)
+                [class1,class2]= [self.edge_classes[edge_idx][0],self.edge_classes[edge_idx][1]] #each segment classified from both directions
+                if class1 == 99 or class2 == 99:
+                    #ignore this line segment in the displacement calculations since it has been flagged that
+                    #it does not share resemblance with any of the reference vectors
+                    print('ignored segment')
+                else:
+                    #mean vector 
+                    u = [(self.center_neighborhood_vectors[class1][0]-self.center_neighborhood_vectors[class2][0])/2,
+                    (self.center_neighborhood_vectors[class1][1]-self.center_neighborhood_vectors[class2][1])/2]
+                    
+
+                    v = [(self.vertices[neighbor][0]-self.vertices[vertex][0]),
+                    (self.vertices[neighbor][1]-self.vertices[vertex][1])]
+                    #print(distance.cosine(v,u),v,u)
+                    if distance.cosine(v,u) <= 1/math.sqrt(2):
+                        ideal_vector_list.append(u)
+                        vector_list.append(v)
+                        #i +=1
+                    else:
+                        u = [-u[0],-u[1]]
+                        ideal_vector_list.append(u)
+                        vector_list.append(v)
+                        #j+=1
+            ideal_vecs=np.array(ideal_vector_list)
+            real_vecs=np.array(vector_list)
+            displacements = np.sum(np.subtract(real_vecs,ideal_vecs),axis=0)/np.shape(real_vecs)[1]
+            #print(ideal_vecs,real_vecs)
+            displacement_list.append(displacements.tolist())
+        self.vertex_displacements.append(displacement_list)
+
+
+        #print(i,j)
+
+                
+
+            #find position according to ideal neighborhood; displacement = opt_pos - vertex
+            #get center nborhood vectors for
+        #for vertex in self.vertices:
+        #   displacements = []
+        #   j = 0
+        #   for neighbor in connections[i]:
+        #       partial displacement = (vertex - neighborhood_vectors[self.connection_classes[j]]) - (vertex - self.vertices[neighbor])
+        #       j +=1 
+        #i += 1
     
     #def find_primitive_vectors(self):
     #    self.centeral_vertex
 
 
 platin = Material(t)
-print(platin.connections,platin.connection_classes)
+#print(platin.connections)
+print(platin.vertices)
+print('\n')
+print(platin.vertex_displacements[0])
+#print(platin.connection_classes)
+#print('\n')
+#print(platin.edges)
+#print('\n')
+#print(platin.edge_classes)
 #print(platin.number_of_connections)
 #print(platin.connections)
 #print(platin.central_vertex)
 #print(platin.segment_areas)
+V = np.array(platin.vertex_displacements[0])
+x,y = V.T
+x_dir = x.tolist()
+y_dir = y.tolist()
+x,y = np.array(platin.vertices).T
+x_pos = x.tolist()
+y_pos = y.tolist()
+print(len(x))
+print(len(y))
+print(len(x_pos))
+print(len(y_pos))
+#print(origina)
+#print(np.array(platin.vertices))
+fig, ax = plt.subplots()
+im_data = im.T
+imaa = ax.imshow(im_data,origin = 'lower',cmap = 'plasma')
+#tr.plot(ax,**t)
+ax.quiver(x_pos,y_pos,x_dir,y_dir,angles='xy', scale_units='xy', scale=1)
+plt.show()
+
+
+
 
 V = np.array(platin.center_neighborhood_vectors)
 origin = np.repeat(np.array([[np.array(platin.vertices[platin.central_vertex])[0]],[np.array(platin.vertices[platin.central_vertex])[1]]]),np.size(V,axis=0),axis=1)
