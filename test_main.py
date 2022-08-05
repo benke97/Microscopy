@@ -160,7 +160,9 @@ class Material:
         self.number_of_connections = []
         self.connections = []
         self.connection_classes = []
-        self.segment_areas = []
+        self.triangle_areas = []
+        self.ideal_vertices = []
+        self.ideal_trig_areas = []
         self.edge_lengths = []
         self.edge_classes = []
         self.center_neighborhood_vectors = []
@@ -176,27 +178,34 @@ class Material:
         self.set_central_vertex()
         self.set_center_neighborhood_vectors()
         self.calculate_edge_lengths()
-        self.calculate_segment_areas()
+        self.calculate_triangle_areas()
         self.classify_segments()
         self.set_edge_class()
         self.calculate_vertex_displacement()
+        self.set_ideal_vertices()
+        self.calculate_ideal_triangles()
 
-    def get_length(self,idx_1,idx_2):
-        a = self.vertices[idx_1]
-        b = self.vertices[idx_2]
+    def get_length(self,idx_1,idx_2,*args):
+        if 'ideal' in args:
+            a = self.ideal_vertices[idx_1]
+            b = self.ideal_vertices[idx_2]
+        else:
+            a = self.vertices[idx_1]
+            b = self.vertices[idx_2]
         return math.sqrt(pow(a[0]-b[0],2)+pow(a[1]-b[1],2))    
     
-    def calculate_segment_areas(self):
+    def calc_trig_area(self,a,b,c):
+        s = (a+b+c)/2
+        area = math.sqrt(s*(s-a)*(s-b)*(s-c))
+        return area
+
+    def calculate_triangle_areas(self):
         #Heron's formula
-        i=0
         for trig in self.triangles:
             a = self.get_length(trig[0],trig[1])
             b = self.get_length(trig[1],trig[2])
             c = self.get_length(trig[2],trig[0])
-            s = (a+b+c)/2
-            #print(i,math.sqrt(s*(s-a)*(s-b)*(s-c)))
-            self.segment_areas.append(math.sqrt(s*(s-a)*(s-b)*(s-c)))
-            i = i+1
+            self.triangle_areas.append(self.calc_trig_area(a,b,c))
 
     def calculate_edge_lengths(self):
         for edge in self.edges:
@@ -334,31 +343,34 @@ class Material:
             #print(ideal_vecs,real_vecs)
             displacement_list.append(displacements.tolist())
         self.vertex_displacements.append(displacement_list)
-
-
-        #print(i,j)
-
-                
-
-            #find position according to ideal neighborhood; displacement = opt_pos - vertex
-            #get center nborhood vectors for
-        #for vertex in self.vertices:
-        #   displacements = []
-        #   j = 0
-        #   for neighbor in connections[i]:
-        #       partial displacement = (vertex - neighborhood_vectors[self.connection_classes[j]]) - (vertex - self.vertices[neighbor])
-        #       j +=1 
-        #i += 1
     
-    #def find_primitive_vectors(self):
-    #    self.centeral_vertex
+    def set_ideal_vertices(self):
+        for vertex in range(len(self.vertices)):
+            ideal_pos = np.array(self.vertices[vertex])+np.array(self.vertex_displacements[0][vertex])
+            self.ideal_vertices.append(ideal_pos.tolist())  
 
+    def calculate_ideal_triangles(self): #this is not correct
+        for trig in self.triangles:
+            a = self.get_length(trig[0],trig[1],'ideal')
+            b = self.get_length(trig[1],trig[2],'ideal')
+            c = self.get_length(trig[2],trig[0],'ideal')
+            self.ideal_trig_areas.append(self.calc_trig_area(a,b,c))
+
+        print('hello')
 
 platin = Material(t)
+Xboi= np.array(platin.vertices)
+Xbaoo = np.array(platin.ideal_vertices)
+plt.scatter(Xboi[:,0], Xboi[:,1], c ="b")
+plt.scatter(Xbaoo[:,0],Xbaoo[:,1],color="r") 
+# To show the plot
+plt.show()
 #print(platin.connections)
 print(platin.vertices)
 print('\n')
 print(platin.vertex_displacements[0])
+print(platin.ideal_trig_areas)
+print(platin.triangle_areas)
 #print(platin.connection_classes)
 #print('\n')
 #print(platin.edges)
@@ -369,7 +381,7 @@ print(platin.vertex_displacements[0])
 #print(platin.central_vertex)
 #print(platin.segment_areas)
 V = np.array(platin.vertex_displacements[0])
-x,y = V.T
+x,y = -V.T #IMPORTANT MINUS SIGN
 x_dir = x.tolist()
 y_dir = y.tolist()
 x,y = np.array(platin.vertices).T
