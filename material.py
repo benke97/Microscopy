@@ -2,7 +2,8 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 import math 
 from scipy.spatial import distance
-from cmath import inf
+from cmath import inf, pi
+from collections import deque
 
 class Material:
 
@@ -18,12 +19,15 @@ class Material:
         self.center_neighborhood_vectors = []
         self.vertex_displacements = []
         self.trig_strain = []
+        self.voronoi_cells = []
+        self.voronoi_vertices = []
         self.central_vertex = 0
         self.primitive_vectors = np.zeros((2,2))
         self.neighbors = triangle_object['neighbors'].tolist()
         self.vertices = triangle_object['vertices'].tolist() 
         self.triangles = triangle_object['triangles'].tolist()
         self.edges = triangle_object['edges'].tolist()
+        self.segments = triangle_object['segments'].tolist()
         self.set_number_of_connections()  
         self.set_connections()
         self.set_central_vertex()
@@ -36,6 +40,7 @@ class Material:
         self.set_ideal_vertices()
         self.calculate_ideal_triangles()
         self.calc_trig_strain()
+        self.calc_voronoi_cells()
 
     def get_length(self,idx_1,idx_2,*args):
         if 'ideal' in args:
@@ -241,11 +246,43 @@ class Material:
                             + math.sqrt(pow(self.center_neighborhood_vectors[class2c][0],2)+pow(self.center_neighborhood_vectors[class2c][1],2)))/2
 
 
-            print(self.center_neighborhood_vectors[class1a])
-            print(np.array(self.center_neighborhood_vectors[class1a]))
-            print(np.absolute(np.array(self.center_neighborhood_vectors[class1a])))
-            print(a_length,b_length,c_length)
             ideal_area = self.calc_trig_area(a_length,b_length,c_length)
             strain_percent = (1-self.triangle_areas[i]/ideal_area)*100
             self.trig_strain.append(strain_percent)
             i +=1
+    
+    def calc_voronoi_cells(self):
+        for vertex in range(len(self.vertices)):
+
+            #SORT NEIGHBORS
+            nbors = self.connections[vertex]
+            a = np.array(self.vertices)[np.array(nbors)] - np.array(self.vertices[vertex])
+            sort_idx = np.argsort(np.arctan2(a[:,0],a[:,1])*360/pi)
+            sorted_neighbors = np.array(nbors)[sort_idx]
+            voro_verts = []
+            lines = []
+            #CALCULATE PERPENDICULAR LINE TO nbor-vertex at point vertex + (nbor-vertex)/2
+            for nbor in sorted_neighbors:
+                self.get_edge_index(vertex,nbor)
+                k = (self.vertices[nbor][0]-self.vertices[vertex][0])/(self.vertices[nbor][1]-self.vertices[vertex][1])
+                k2 = -1/k
+                intercept_point = np.array(self.vertices[vertex])+(np.array(self.vertices[nbor])-np.array(self.vertices[vertex]))/2
+                m = intercept_point[1]-k2*intercept_point[0]
+                perpendicular_line = [k2,m]
+                lines.append(perpendicular_line)
+                #print(perpendicular_line)
+                #print(self.vertices[nbor],self.vertices[vertex],intercept_point)
+                #np.array(self.vertices[nbor])-np.array(self.vertices[vertex])
+            for i in range(len(sorted_neighbors)):
+                j = i+1
+                if i == len(sorted_neighbors)-1:
+                    j = 0
+                A = np.array([[1,-lines[i][0]],[1,-lines[j][0]]])
+                b = np.array([lines[i][1],lines[j][1]])
+                y, x = np.matmul(np.linalg.inv(A),b).tolist()
+                voronoi_vertex = [x,y]
+                voro_verts.append(voronoi_vertex)
+                self.voronoi_vertices.append(voronoi_vertex)
+            self.voronoi_cells.append(voro_verts) 
+        #print(self.voronoi_cells)
+            

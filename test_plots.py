@@ -34,10 +34,10 @@ for n in range(len(names)):
 
 
 
-platin = Material(triangulations[0])
 ceri = Material(triangulations[1])
+platin = Material(triangulations[0])
 
-print(platin.trig_strain)
+#print(platin.trig_strain)
 #fig, ax = plt.subplots()
 #im_data = im.T
 
@@ -55,27 +55,15 @@ print(platin.trig_strain)
 
 
 
-Xboi= np.array(platin.vertices)
-Xbaoo = np.array(platin.ideal_vertices)
-plt.scatter(Xboi[:,0], Xboi[:,1], c ="b")
-plt.scatter(Xbaoo[:,0],Xbaoo[:,1],color="r") 
+#Xboi= np.array(platin.vertices)
+#Xbaoo = np.array(platin.ideal_vertices)
+#plt.scatter(Xboi[:,0], Xboi[:,1], c ="b")
+#plt.scatter(Xbaoo[:,0],Xbaoo[:,1],color="r") 
 # To show the plot
-plt.show()
+#plt.show()
 #print(platin.connections)
-print(platin.vertices)
-print('\n')
-print(platin.vertex_displacements[0])
-print(platin.ideal_trig_areas)
-print(platin.triangle_areas)
-#print(platin.connection_classes)
-#print('\n')
-#print(platin.edges)
-#print('\n')
-#print(platin.edge_classes)
-#print(platin.number_of_connections)
-#print(platin.connections)
-#print(platin.central_vertex)
-#print(platin.segment_areas)
+
+
 V = np.array(platin.vertex_displacements[0])
 x,y = -V.T #IMPORTANT MINUS SIGN
 x_dir = x.tolist()
@@ -83,12 +71,7 @@ y_dir = y.tolist()
 x,y = np.array(platin.vertices).T
 x_pos = x.tolist()
 y_pos = y.tolist()
-print(len(x))
-print(len(y))
-print(len(x_pos))
-print(len(y_pos))
-#print(origina)
-#print(np.array(platin.vertices))
+
 fig, ax = plt.subplots()
 im_data = im.T
 imaa = ax.imshow(im_data,origin = 'lower',cmap = 'gray')
@@ -112,24 +95,10 @@ tr.plot(ax,**triangulations[1])
 #ax.tripcolor(np.array(platin.vertices)[:,0], np.array(platin.vertices)[:,1], np.array(platin.triangles),facecolors=np.array(platin.trig_strain), cmap='coolwarm',alpha=0.2, edgecolors='k')
 #ax.tripcolor(np.array(ceri.vertices)[:,0], np.array(ceri.vertices)[:,1], np.array(ceri.triangles),facecolors=np.array(ceri.trig_strain), cmap='coolwarm',alpha=0.2, edgecolors='k')
 
-print(np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0))
-print(np.concatenate((np.array(platin.triangles),np.array(ceri.triangles)+np.amax(np.array(platin.triangles)+1)),axis=0))
-#print(np.amax(np.array(platin.triangles)))
-#print(np.amin(np.array(ceri.triangles)+36))
-#print(np.array(platin.triangles))
-#print(np.array(ceri.triangles)+35)
-print(np.size(np.array(platin.trig_strain)))
-print(np.size(np.array(platin.triangles)))
-print(np.size(np.array(ceri.trig_strain)))
-print(np.size(np.array(ceri.triangles)))
-print(np.append(np.array(platin.trig_strain),np.array(ceri.trig_strain)))
-
 boi = ax.tripcolor(np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,0],np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,1],
 np.concatenate((np.array(platin.triangles),np.array(ceri.triangles)+np.amax(np.array(platin.triangles)+1)),axis=0),facecolors=np.append(np.array(platin.trig_strain),
-np.array(ceri.trig_strain)), cmap='coolwarm',alpha=0.7, edgecolors='k')
+np.array(ceri.trig_strain)), cmap='coolwarm',alpha=0.5, edgecolors='k')
 fig.colorbar(boi)
-print(np.amax(np.append(np.array(platin.trig_strain),np.array(ceri.trig_strain))))
-print(np.amin(np.append(np.array(platin.trig_strain),np.array(ceri.trig_strain))))
 plt.show()
 
 #----------------------------------------------------------------------------
@@ -140,4 +109,18 @@ plt.scatter(np.array(platin.vertices)[:,1], np.array(platin.vertices)[:,0], s=30
 plt.scatter(np.array(ceri.vertices)[:,1],np.array(ceri.vertices)[:,0], s=30, c='b', marker="o", label='Ce')
 plt.legend(loc='upper left')
 #plt.axis('square')
+plt.show()
+
+
+
+from scipy.spatial import Voronoi, voronoi_plot_2d
+vor = Voronoi(platin.vertices)
+#fig = voronoi_plot_2d(vor)
+print(platin.edges)
+print(platin.segments)
+#print(platin.voronoi_vertices)
+fig, ax = plt.subplots()
+tr.plot(ax,**triangulations[0])
+ax.scatter(np.array(platin.voronoi_vertices)[:,0],np.array(platin.voronoi_vertices)[:,1], s=30, c='b')
+plt.axis('square')
 plt.show()

@@ -80,3 +80,19 @@ if __name__ == "__main__":
     from write_PSLG import write_PSLG
     write_PSLG(names,phases,edge_loop_idx)
 
+    import triangle as tr
+    import os 
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    particle = tr.load(dir_path, str(names))
+    t = tr.triangulate(particle, 'pne')
+
+    tr.compare(plt, particle, t)
+    plt.show()
+    from material import Material
+    a = Material(t)
+
+    boi = ax.tripcolor(np.array(a.vertices)[:,0],np.array(a.vertices)[:,1], np.array(a.triangles),facecolors=np.array(a.trig_strain), cmap='coolwarm',alpha=0.7, edgecolors='k')
+    fig.colorbar(boi)
+    #print(np.amax(np.append(np.array(platin.trig_strain),np.array(ceri.trig_strain))))
+    #print(np.amin(np.append(np.array(platin.trig_strain),np.array(ceri.trig_strain))))
+    plt.show()
