@@ -22,6 +22,7 @@ import os
 import math 
 from scipy.spatial import distance
 from material import Material
+from matplotlib.collections import LineCollection
 
 im = skimage.io.imread("test.tif")
 triangulations = []
@@ -120,7 +121,19 @@ print(platin.edges)
 print(platin.segments)
 #print(platin.voronoi_vertices)
 fig, ax = plt.subplots()
+#voronoi_plot_2d(vor)
 tr.plot(ax,**triangulations[0])
-ax.scatter(np.array(platin.voronoi_vertices)[:,0],np.array(platin.voronoi_vertices)[:,1], s=30, c='b')
-plt.axis('square')
+#plot lines
+print(np.shape(np.array(platin.triangles)))
+#print(np.array(platin.vertices)[platin.triangles[0]], platin.voronoi_verts[0])
+#DONT DELETE THIS WAS HARD!
+
+a = [np.vstack((np.array(platin.voronoi_verts)[seg])) for seg in platin.voronoi_segs]
+line_segments = LineCollection(a, linewidths=2,
+                               colors='b', linestyle='solid')
+ax.add_collection(line_segments)
+
+#ax.scatter(np.array(platin.vertices)[:,0],np.array(platin.vertices)[:,1], s=30, c='b')
+ax.scatter(np.array(platin.voronoi_verts)[:,0],np.array(platin.voronoi_verts)[:,1], s=50, c='k',marker= 'x')
+#plt.axis('square')
 plt.show()

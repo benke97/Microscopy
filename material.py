@@ -1,9 +1,11 @@
+from sqlite3 import connect
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 import math 
 from scipy.spatial import distance
 from cmath import inf, pi
 from collections import deque
+from collections import Counter
 
 class Material:
 
@@ -21,6 +23,8 @@ class Material:
         self.trig_strain = []
         self.voronoi_cells = []
         self.voronoi_vertices = []
+        self.voronoi_verts = []
+        self.voronoi_segs = []
         self.central_vertex = 0
         self.primitive_vectors = np.zeros((2,2))
         self.neighbors = triangle_object['neighbors'].tolist()
@@ -40,6 +44,10 @@ class Material:
         self.set_ideal_vertices()
         self.calculate_ideal_triangles()
         self.calc_trig_strain()
+        self.calc_voronoi_cells_bad()
+        
+        self.calc_voronoi_verts()
+        self.calc_voronoi_segs()
         self.calc_voronoi_cells()
 
     def get_length(self,idx_1,idx_2,*args):
@@ -251,7 +259,7 @@ class Material:
             self.trig_strain.append(strain_percent)
             i +=1
     
-    def calc_voronoi_cells(self):
+    def calc_voronoi_cells_bad(self):
         for vertex in range(len(self.vertices)):
 
             #SORT NEIGHBORS
@@ -283,6 +291,107 @@ class Material:
                 voronoi_vertex = [x,y]
                 voro_verts.append(voronoi_vertex)
                 self.voronoi_vertices.append(voronoi_vertex)
-            self.voronoi_cells.append(voro_verts) 
+            #self.voronoi_cells.append(voro_verts) 
         #print(self.voronoi_cells)
+                
+    def circumcenter(self,trig):
+        ax = self.vertices[trig[0]][0]
+        ay = self.vertices[trig[0]][1]
+        bx = self.vertices[trig[1]][0]
+        by = self.vertices[trig[1]][1]
+        cx = self.vertices[trig[2]][0]
+        cy = self.vertices[trig[2]][1]
+        d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+        ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d
+        uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d
+        return (ux, uy)
+
+    def calc_voronoi_verts(self):
+        for trig in self.triangles:
+            x,y = self.circumcenter(trig)
+            self.voronoi_verts.append([x,y])
+
+
+    def calc_voronoi_segs(self):
+        for trig in range(len(self.triangles)):
+            nbor_trigs = self.neighbors[trig]
+            for nbor in nbor_trigs:
+                if nbor == -1 or [nbor,trig] in self.voronoi_segs:
+                    continue
+                self.voronoi_segs.append([trig,nbor])
+
+    def sorted_triangles(self,vertex):
+        connected_triangles_idx = self.get_connected_triangles(vertex) 
+        nbors = self.connections[vertex]
+        a = np.array(self.vertices)[np.array(nbors)] - np.array(self.vertices[vertex])
+        sort_idx = np.argsort(np.arctan2(a[:,0],a[:,1])*360/pi)
+        sorted_neighbors = np.array(nbors)[sort_idx]
+        
+        if any(vertex in boundary for boundary in self.segments):
+            #print('i am boundary',vertex)
+            #print(sorted_neighbors)
+            sorted_neighbors = self.set_start_to_edge(vertex,sorted_neighbors)
+            #print(sorted_neighbors)
+        #print('bob')
+    
+        #print(np.array(self.triangles)[connected_triangles_idx])
+        #print(sorted_neighbors)
+        sorted_trigs=[]
+        for trig in range(len(connected_triangles_idx)):
+            if len(connected_triangles_idx) == len(sorted_neighbors):
+                if trig == len(connected_triangles_idx)-1:
+                    sorted_trigs.append([vertex,sorted_neighbors[trig],sorted_neighbors[0]])
+                    continue
+                sorted_trigs.append([vertex,sorted_neighbors[trig],sorted_neighbors[trig+1]])
+            else:
+                if trig == len(connected_triangles_idx):
+                    sorted_trigs.append([vertex,sorted_neighbors[trig],sorted_neighbors[0]])
+                    continue
+                sorted_trigs.append([vertex,sorted_neighbors[trig],sorted_neighbors[trig+1]])
+
+        i=0
+        #print(sorted_trigs)
+        for trig in sorted_trigs:
+
+            for trigg in np.array(self.triangles)[connected_triangles_idx]:
+                #print(self.compare(trig,trigg))
+                if self.compare(trig,trigg):
+                    sorted_trigs[i] = trigg.tolist()
+            i+=1
+   
+        return sorted_trigs
+
+
+    def set_start_to_edge(self,vertex,sorted_nbors):
+        #print('boi')
+        sorted_nbors_dq = deque(sorted_nbors)
+        while not self.is_boundary(vertex,sorted_nbors_dq[0]) or not self.is_boundary(vertex,sorted_nbors_dq[-1]):
+            sorted_nbors_dq.rotate(1)
+        return list(sorted_nbors_dq)
+
+    def compare(self,s, t):
+        return Counter(s) == Counter(t)
+
+    def is_boundary(self,idx1,idx2):
+        return [idx1,idx2] in self.segments or [idx2,idx1] in self.segments
+
+    def calc_voronoi_cells(self):
+        for vertex in range(len(self.vertices)):
+            #connected_triangles_idx = self.get_connected_triangles(vertex)
+            sorted_connected_triangles = self.sorted_triangles(vertex)
+            print('\n')
+            print(sorted_connected_triangles)
+            connected_triangles_idx = self.get_connected_triangles(vertex)
+            print(np.array(self.triangles)[connected_triangles_idx].tolist())
+            #voronoi_verts_idx = connected_triangles_idx 
+            #voronoi_verts = np.array(self.voronoi_verts)[voronoi_verts_idx]
+            #print(sorted_connected_triangles)
             
+            #print(voronoi_verts_idx,voronoi_verts)
+
+
+
+    def get_connected_triangles(self,vertex_idx):
+        connected_triangles = [self.triangles.index(trig) for trig in self.triangles if vertex_idx in trig]
+        #print(connected_triangles)
+        return connected_triangles
