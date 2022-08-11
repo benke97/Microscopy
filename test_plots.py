@@ -124,9 +124,10 @@ print(platin.segments)
 #print(platin.voronoi_vertices)
 fig, ax = plt.subplots()
 #voronoi_plot_2d(vor)
-tr.plot(ax,**triangulations[0])
+#tr.plot(ax,**triangulations[0])
 #plot lines
 print(np.shape(np.array(platin.triangles)))
+print(platin.voronoi_segs)
 #print(np.array(platin.vertices)[platin.triangles[0]], platin.voronoi_verts[0])
 #DONT DELETE THIS WAS HARD!
 a = [np.vstack((np.array(platin.voronoi_verts)[seg])) for seg in platin.voronoi_segs]
@@ -135,6 +136,6 @@ line_segments = LineCollection(a, linewidths=2,
 ax.add_collection(line_segments)
 
 #ax.scatter(np.array(platin.vertices)[:,0],np.array(platin.vertices)[:,1], s=30, c='b')
-ax.scatter(np.array(platin.voronoi_verts)[:,0],np.array(platin.voronoi_verts)[:,1], s=100, c='k')
+ax.scatter(np.array(platin.voronoi_verts)[:,0],np.array(platin.voronoi_verts)[:,1], s=100, c='k',marker='o')
 #plt.axis('square')
 plt.show()
