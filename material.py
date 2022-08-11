@@ -375,14 +375,95 @@ class Material:
     def is_boundary(self,idx1,idx2):
         return [idx1,idx2] in self.segments or [idx2,idx1] in self.segments
 
+    def find_boundary_in_trig(self,trig,vertex):
+            if self.is_boundary(trig[0],trig[1]):
+                if [trig[0],trig[1]] in self.segments:
+                    return [trig[0],trig[1]]
+                return [trig[1],trig[0]]
+            if self.is_boundary(trig[1],trig[2]):
+                if [trig[1],trig[2]] in self.segments:
+                    return [trig[1],trig[2]]
+                return [trig[2],trig[1]]  
+            if self.is_boundary(trig[2],trig[0]):
+                if [trig[2],trig[0]] in self.segments:
+                    return [trig[2],trig[0]]
+                return [trig[0],trig[2]]                 
+
     def calc_voronoi_cells(self):
         for vertex in range(len(self.vertices)):
             #connected_triangles_idx = self.get_connected_triangles(vertex)
             sorted_connected_triangles = self.sorted_triangles(vertex)
-            print('\n')
-            print(sorted_connected_triangles)
-            connected_triangles_idx = self.get_connected_triangles(vertex)
-            print(np.array(self.triangles)[connected_triangles_idx].tolist())
+            #print('\n')
+            #print(sorted_connected_triangles)
+            #connected_triangles_idx = self.get_connected_triangles(vertex)
+            #print(np.array(self.triangles)[connected_triangles_idx].tolist())
+            sorted_trig_idx=[]
+            for trig in sorted_connected_triangles:
+                sorted_trig_idx.append(self.triangles.index(trig))
+
+            if any(vertex in boundary for boundary in self.segments):
+                print('edge_cell')
+                #print(vertex)
+                #print(np.array(self.triangles)[sorted_trig_idx])
+                #print(self.voronoi_segs)
+                #print(vertex,np.array(self.triangles)[sorted_trig_idx])
+                edge_segment_1 = self.find_boundary_in_trig(np.array(self.triangles)[sorted_trig_idx][-1],vertex)
+                edge_segment_2 = self.find_boundary_in_trig(np.array(self.triangles)[sorted_trig_idx][0],vertex)
+
+                #print(edge_segment_1,edge_segment_2)
+                if edge_segment_1[0] == vertex:
+                    new_point_1 = np.array(self.vertices[vertex]) + (np.array(self.vertices[edge_segment_1[1]])-np.array(self.vertices[vertex]))/2
+                    #print(self.vertices[vertex],new_point_1.tolist(),self.vertices[edge_segment_1[1]])
+                else:
+                    new_point_1 = np.array(self.vertices[vertex]) + (np.array(self.vertices[edge_segment_1[0]])-np.array(self.vertices[vertex]))/2
+                    #print(self.vertices[vertex],new_point_1.tolist(),self.vertices[edge_segment_1[0]])
+                
+                if edge_segment_2[0] == vertex:
+                    new_point_2 = np.array(self.vertices[vertex]) + (np.array(self.vertices[edge_segment_2[1]])-np.array(self.vertices[vertex]))/2
+                    #print(self.vertices[vertex],new_point_2.tolist(),self.vertices[edge_segment_2[1]])
+                else:
+                    new_point_2 = np.array(self.vertices[vertex]) + (np.array(self.vertices[edge_segment_2[0]])-np.array(self.vertices[vertex]))/2
+                    #print(self.vertices[vertex],new_point_2.tolist(),self.vertices[edge_segment_2[0]])
+
+
+                #print(edge_1,edge_1 in self.segments)
+                #if not new_point_1.tolist() in self.voronoi_verts:
+                self.voronoi_verts.append(new_point_1.tolist())
+                #if not self.vertices[vertex] in self.voronoi_verts:    
+                self.voronoi_verts.append(self.vertices[vertex])
+                #if not new_point_2.tolist() in self.voronoi_verts:
+                self.voronoi_verts.append(new_point_2.tolist())
+                print('SIZE',np.shape(np.array(self.voronoi_verts)))
+                #print(self.voronoi_verts.index(new_point_1.tolist()),self.voronoi_verts.index(self.vertices[vertex]),self.voronoi_verts.index(new_point_2.tolist()))   
+                sorted_trig_idx.append(self.voronoi_verts.index(new_point_1.tolist()))
+                sorted_trig_idx.append(self.voronoi_verts.index(self.vertices[vertex]))
+                sorted_trig_idx.append(self.voronoi_verts.index(new_point_2.tolist()))
+                
+                self.voronoi_segs.append([sorted_trig_idx[-1],self.voronoi_verts.index(new_point_1.tolist())])
+                self.voronoi_segs.append([self.voronoi_verts.index(new_point_1.tolist()),self.voronoi_verts.index(self.vertices[vertex])])
+                self.voronoi_segs.append([self.voronoi_verts.index(self.vertices[vertex]),self.voronoi_verts.index(new_point_2.tolist())])
+                self.voronoi_segs.append([self.voronoi_verts.index(new_point_2.tolist()),sorted_trig_idx[0]])
+                if [self.voronoi_verts.index(new_point_1.tolist()),self.voronoi_verts.index(new_point_2.tolist())] in self.voronoi_segs or [self.voronoi_verts.index(new_point_2.tolist()),self.voronoi_verts.index(new_point_1.tolist())] in self.voronoi_segs:
+                    print('fan',vertex)
+
+                #sorted_trig_idx.append(index(halvvägs mellan vertex och neighbor edge som finns i sista triangeln))
+                #sorted_trig_idx.append(self.vertices[vertex].index i voroverts))
+                #sorted_trig_idx.append(index(halvvägs mellan vertex och neighbor edge som finns i första triangeln)
+            else:
+                #for trig in sorted_connected_triangles:
+                #    sorted_trig_idx.append(self.triangles.index(trig))
+                #print('\n')
+                #print(sorted_trig_idx, sorted_connected_triangles)
+                #print(self.triangles)
+                #print(len(self.triangles))
+                #print(len(self.voronoi_verts))
+
+                ordered_voronoi_cell = np.array(self.voronoi_verts)[sorted_trig_idx]
+                voronoi_area = self.cell_area(ordered_voronoi_cell)
+                print(voronoi_area)
+        print(sorted_trig_idx)
+
+
             #voronoi_verts_idx = connected_triangles_idx 
             #voronoi_verts = np.array(self.voronoi_verts)[voronoi_verts_idx]
             #print(sorted_connected_triangles)
@@ -395,3 +476,9 @@ class Material:
         connected_triangles = [self.triangles.index(trig) for trig in self.triangles if vertex_idx in trig]
         #print(connected_triangles)
         return connected_triangles
+
+    
+    def cell_area(self,verts):
+        x = verts[:,0]
+        y = verts[:,1]
+        return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))

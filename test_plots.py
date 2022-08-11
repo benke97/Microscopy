@@ -112,7 +112,9 @@ plt.legend(loc='upper left')
 #plt.axis('square')
 plt.show()
 
-
+print(np.shape(np.array((platin.voronoi_verts))))
+print(platin.voronoi_segs)
+print(platin.segments)
 
 from scipy.spatial import Voronoi, voronoi_plot_2d
 vor = Voronoi(platin.vertices)
@@ -127,13 +129,12 @@ tr.plot(ax,**triangulations[0])
 print(np.shape(np.array(platin.triangles)))
 #print(np.array(platin.vertices)[platin.triangles[0]], platin.voronoi_verts[0])
 #DONT DELETE THIS WAS HARD!
-
 a = [np.vstack((np.array(platin.voronoi_verts)[seg])) for seg in platin.voronoi_segs]
 line_segments = LineCollection(a, linewidths=2,
                                colors='b', linestyle='solid')
 ax.add_collection(line_segments)
 
 #ax.scatter(np.array(platin.vertices)[:,0],np.array(platin.vertices)[:,1], s=30, c='b')
-ax.scatter(np.array(platin.voronoi_verts)[:,0],np.array(platin.voronoi_verts)[:,1], s=50, c='k',marker= 'x')
+ax.scatter(np.array(platin.voronoi_verts)[:,0],np.array(platin.voronoi_verts)[:,1], s=100, c='k')
 #plt.axis('square')
 plt.show()
