@@ -22,10 +22,15 @@ class Material:
         self.vertex_displacements = []
         self.trig_strain = []
         self.voronoi_cells = []
-        self.voronoi_vertices = []
         self.voronoi_verts = []
         self.voronoi_segs = []
+        self.voronoi_rel_size = []
+        self.voronoi_areas = []
+        self.voronoi_edges = []
+        self.voronoi_bulk = []
         self.central_vertex = 0
+        self.points = []
+        self.points2 = []
         self.primitive_vectors = np.zeros((2,2))
         self.neighbors = triangle_object['neighbors'].tolist()
         self.vertices = triangle_object['vertices'].tolist() 
@@ -44,11 +49,11 @@ class Material:
         self.set_ideal_vertices()
         self.calculate_ideal_triangles()
         self.calc_trig_strain()
-        self.calc_voronoi_cells_bad()
         
         self.calc_voronoi_verts()
         self.calc_voronoi_segs()
         self.calc_voronoi_cells()
+        self.calc_voronoi_relative_size()
 
     def get_length(self,idx_1,idx_2,*args):
         if 'ideal' in args:
@@ -258,41 +263,6 @@ class Material:
             strain_percent = (1-self.triangle_areas[i]/ideal_area)*100
             self.trig_strain.append(strain_percent)
             i +=1
-    
-    def calc_voronoi_cells_bad(self):
-        for vertex in range(len(self.vertices)):
-
-            #SORT NEIGHBORS
-            nbors = self.connections[vertex]
-            a = np.array(self.vertices)[np.array(nbors)] - np.array(self.vertices[vertex])
-            sort_idx = np.argsort(np.arctan2(a[:,0],a[:,1])*360/pi)
-            sorted_neighbors = np.array(nbors)[sort_idx]
-            voro_verts = []
-            lines = []
-            #CALCULATE PERPENDICULAR LINE TO nbor-vertex at point vertex + (nbor-vertex)/2
-            for nbor in sorted_neighbors:
-                self.get_edge_index(vertex,nbor)
-                k = (self.vertices[nbor][0]-self.vertices[vertex][0])/(self.vertices[nbor][1]-self.vertices[vertex][1])
-                k2 = -1/k
-                intercept_point = np.array(self.vertices[vertex])+(np.array(self.vertices[nbor])-np.array(self.vertices[vertex]))/2
-                m = intercept_point[1]-k2*intercept_point[0]
-                perpendicular_line = [k2,m]
-                lines.append(perpendicular_line)
-                #print(perpendicular_line)
-                #print(self.vertices[nbor],self.vertices[vertex],intercept_point)
-                #np.array(self.vertices[nbor])-np.array(self.vertices[vertex])
-            for i in range(len(sorted_neighbors)):
-                j = i+1
-                if i == len(sorted_neighbors)-1:
-                    j = 0
-                A = np.array([[1,-lines[i][0]],[1,-lines[j][0]]])
-                b = np.array([lines[i][1],lines[j][1]])
-                y, x = np.matmul(np.linalg.inv(A),b).tolist()
-                voronoi_vertex = [x,y]
-                voro_verts.append(voronoi_vertex)
-                self.voronoi_vertices.append(voronoi_vertex)
-            #self.voronoi_cells.append(voro_verts) 
-        #print(self.voronoi_cells)
                 
     def circumcenter(self,trig):
         ax = self.vertices[trig[0]][0]
@@ -391,6 +361,7 @@ class Material:
 
     def calc_voronoi_cells(self):
         check_array = np.zeros((len(self.vertices),len(self.vertices)),dtype=int)
+        voronoi_edge_cell = np.ones(len(self.vertices))
         print(check_array)
         for vertex in range(len(self.vertices)):
             #connected_triangles_idx = self.get_connected_triangles(vertex)
@@ -421,7 +392,7 @@ class Material:
                     edge_segment_1 = self.find_boundary_in_trig(np.array(self.triangles)[sorted_trig_idx][-1],vertex)
                     edge_segment_2 = self.find_boundary_in_trig(np.array(self.triangles)[sorted_trig_idx][0],vertex)
                 if edge_segment_1 == edge_segment_2:
-                    print( "din mamma")
+                    print( "asd")
                 #print(edge_segment_1,edge_segment_2)
                 if edge_segment_1[0] == vertex:
                     new_point_1 = np.array(self.vertices[vertex]) + (np.array(self.vertices[edge_segment_1[1]])-np.array(self.vertices[vertex]))/2
@@ -461,36 +432,27 @@ class Material:
                 
                 
                 self.voronoi_segs.append([sorted_trig_idx[-4],sorted_trig_idx[-3]])
-                self.voronoi_segs.append([sorted_trig_idx[-3],sorted_trig_idx[-2]])
-                self.voronoi_segs.append([sorted_trig_idx[-2],sorted_trig_idx[-1]])
+                #UNCOMMENT TO GET INCLUDE EDGE SEGMENTS IN VORONOI
+                #self.voronoi_segs.append([sorted_trig_idx[-3],sorted_trig_idx[-2]])
+                #self.voronoi_segs.append([sorted_trig_idx[-2],sorted_trig_idx[-1]])
                 self.voronoi_segs.append([sorted_trig_idx[-1],sorted_trig_idx[0]])
-                #self.voronoi_segs.append([sorted_trig_idx[-1],check_array[edge_segment_1[0],edge_segment_1[1]]])
-                #self.voronoi_segs.append([check_array[edge_segment_1[0],edge_segment_1[1]],self.voronoi_verts.index(self.vertices[vertex])])
-                #self.voronoi_segs.append([self.voronoi_verts.index(self.vertices[vertex]),check_array[edge_segment_2[0],edge_segment_2[1]]])
-                #self.voronoi_segs.append([check_array[edge_segment_2[0],edge_segment_2[1]],sorted_trig_idx[0]])
-                
-                #self.voronoi_segs.append([sorted_trig_idx[-1],check_array[edge_segment_1[0],edge_segment_1[1]]])
-                #self.voronoi_segs.append([self.voronoi_verts.index(new_point_1.tolist()),self.voronoi_verts.index(self.vertices[vertex])])
-                #self.voronoi_segs.append([self.voronoi_verts.index(self.vertices[vertex]),self.voronoi_verts.index(new_point_2.tolist())])
-                #self.voronoi_segs.append([self.voronoi_verts.index(new_point_2.tolist()),sorted_trig_idx[0]])
-                #if [self.voronoi_verts.index(new_point_1.tolist()),self.voronoi_verts.index(new_point_2.tolist())] in self.voronoi_segs or [self.voronoi_verts.index(new_point_2.tolist()),self.voronoi_verts.index(new_point_1.tolist())] in self.voronoi_segs:
-                #    print('fan',vertex)
 
-                #sorted_trig_idx.append(index(halvvägs mellan vertex och neighbor edge som finns i sista triangeln))
-                #sorted_trig_idx.append(self.vertices[vertex].index i voroverts))
-                #sorted_trig_idx.append(index(halvvägs mellan vertex och neighbor edge som finns i första triangeln)
+                #self.calc_ideal_voronoi_areas(vertex,sorted_trig_idx,1)
+                ordered_voronoi_cell = np.array(self.voronoi_verts)[sorted_trig_idx]
+                self.voronoi_cells.append(sorted_trig_idx)
+                self.voronoi_areas.append(self.cell_area(ordered_voronoi_cell))
+                voronoi_edge_cell[vertex] = 0
+
             else:
-                #for trig in sorted_connected_triangles:
-                #    sorted_trig_idx.append(self.triangles.index(trig))
-                #print('\n')
-                #print(sorted_trig_idx, sorted_connected_triangles)
-                #print(self.triangles)
-                #print(len(self.triangles))
-                #print(len(self.voronoi_verts))
 
                 ordered_voronoi_cell = np.array(self.voronoi_verts)[sorted_trig_idx]
                 voronoi_area = self.cell_area(ordered_voronoi_cell)
+                self.voronoi_areas.append(self.cell_area(ordered_voronoi_cell))
+                self.voronoi_cells.append(sorted_trig_idx)
                 print(voronoi_area)
+                #self.calc_ideal_voronoi_areas(vertex,sorted_trig_idx,0)
+        self.voronoi_edges = voronoi_edge_cell
+        self.voronoi_bulk = np.nonzero(voronoi_edge_cell)[0].tolist()
         print(sorted_trig_idx)
 
 
@@ -512,3 +474,10 @@ class Material:
         x = verts[:,0]
         y = verts[:,1]
         return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
+
+
+    def calc_voronoi_relative_size(self):
+        for area in self.voronoi_areas:
+            print(self.central_vertex)
+            self.voronoi_rel_size.append(100*(1-area/self.voronoi_areas[self.central_vertex]))
+        print(np.array(self.voronoi_rel_size)[self.voronoi_bulk].tolist())

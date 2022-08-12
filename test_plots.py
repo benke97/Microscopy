@@ -2,7 +2,7 @@ from cmath import inf
 from pyexpat import XML_PARAM_ENTITY_PARSING_UNLESS_STANDALONE
 from ssl import ALERT_DESCRIPTION_HANDSHAKE_FAILURE
 from tarfile import TarError
-from turtle import shape
+from turtle import color, shape
 import stemtool as st
 import cv2
 import skimage
@@ -23,6 +23,8 @@ import math
 from scipy.spatial import distance
 from material import Material
 from matplotlib.collections import LineCollection
+from matplotlib.patches import Polygon
+from matplotlib.collections import PatchCollection
 
 im = skimage.io.imread("test.tif")
 triangulations = []
@@ -127,15 +129,60 @@ fig, ax = plt.subplots()
 #tr.plot(ax,**triangulations[0])
 #plot lines
 print(np.shape(np.array(platin.triangles)))
-print(platin.voronoi_segs)
+print(np.shape(np.array(platin.points)),len(platin.vertices),platin.points)
 #print(np.array(platin.vertices)[platin.triangles[0]], platin.voronoi_verts[0])
 #DONT DELETE THIS WAS HARD!
 a = [np.vstack((np.array(platin.voronoi_verts)[seg])) for seg in platin.voronoi_segs]
 line_segments = LineCollection(a, linewidths=2,
                                colors='b', linestyle='solid')
 ax.add_collection(line_segments)
-
-#ax.scatter(np.array(platin.vertices)[:,0],np.array(platin.vertices)[:,1], s=30, c='b')
-ax.scatter(np.array(platin.voronoi_verts)[:,0],np.array(platin.voronoi_verts)[:,1], s=100, c='k',marker='o')
+im_data = im.T
+imaa = ax.imshow(im_data,origin = 'lower',cmap = 'gray')
+#ax.scatter(np.array(platin.voronoi_verts)[:,0],np.array(platin.voronoi_verts)[:,1], s=100, c='k',marker='o')
+#ax.scatter(np.array(platin.vertices)[:,0],np.array(platin.vertices)[:,1], s=60, c='r')
 #plt.axis('square')
+plt.show()
+
+print(platin.voronoi_edges)
+fig,ax = plt.subplots()
+
+boi = ax.tripcolor(np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,0],np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,1],
+np.concatenate((np.array(platin.triangles),np.array(ceri.triangles)+np.amax(np.array(platin.triangles)+1)),axis=0),facecolors=np.append(np.array(platin.trig_strain),
+np.array(ceri.trig_strain)), cmap='coolwarm',alpha=0.7, edgecolors='k')
+
+a = [np.vstack((np.array(ceri.voronoi_verts)[seg])) for seg in ceri.voronoi_segs]
+line_segments = LineCollection(a, linewidths=2,
+                               colors='k', linestyle='solid')
+ax.add_collection(line_segments)
+a = [np.vstack((np.array(platin.voronoi_verts)[seg])) for seg in platin.voronoi_segs]
+line_segments2 = LineCollection(a, linewidths=2,
+                               colors='k', linestyle='solid')
+ax.add_collection(line_segments2)
+im_data = im.T
+imaa = ax.imshow(im_data,origin = 'lower',cmap = 'gray')
+#ax.scatter(np.array(ceri.ideal_vertices)[:,0],np.array(ceri.ideal_vertices)[:,1], s=60, c='c',marker='o')
+#ax.scatter(np.array(ceri.points)[:,0],np.array(ceri.points)[:,1], s=60, c='g',marker='o')
+#ax.scatter(np.array(ceri.voronoi_verts)[:,0],np.array(ceri.voronoi_verts)[:,1], s=100, c='k',marker='o')
+#ax.scatter(np.array(ceri.vertices)[:,0],np.array(ceri.vertices)[:,1], s=60, c='r')
+#plt.axis('square')
+plt.show()
+print(platin.voronoi_cells)
+print(platin.voronoi_bulk)
+print(platin.voronoi_verts)
+print(np.array(platin.voronoi_verts)[np.array(platin.voronoi_cells)[platin.voronoi_bulk][0]])
+fig, ax = plt.subplots()
+patches = []
+for cell_nr in range(len(platin.voronoi_bulk)):
+    polygon = Polygon(np.array(platin.voronoi_verts)[np.array(platin.voronoi_cells)[platin.voronoi_bulk][cell_nr]], True)
+    patches.append(polygon)
+print(patches[0].get_xy())
+p = PatchCollection(patches)
+#colors = np.array(platin.voronoi_rel_size)[platin.voronoi_bulk]
+#print(colors)
+#print(p)
+#p.set_array(colors)
+ax.add_collection(p)
+#fig.colorbar(p, ax=ax)
+#im_data = im.T
+#imaa = ax1.imshow(im_data,origin = 'lower',cmap = 'gray')
 plt.show()
