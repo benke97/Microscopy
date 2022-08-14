@@ -37,11 +37,11 @@ patches += [
 ]
 
 for i in range(N):
-    polygon = Polygon(np.random.rand(N, 2), True)
+    polygon = Polygon(np.array([[221.54036737 ,272.56337391],[219.50895989 ,282.53937544],[233.0748601 , 297.19365539],[249.20958301, 289.5343762 ],[251.24640975 ,281.19968993],[237.71810075 ,265.96700355]]), True)
     patches.append(polygon)
 
     #print(np.random.rand(N, 2))
-
+patches 
 colors = 100 * np.random.rand(len(patches))
 print(patches[11].get_xy())
 p = PatchCollection(patches, alpha=0.4)

@@ -23,7 +23,7 @@ import math
 from scipy.spatial import distance
 from material import Material
 from matplotlib.collections import LineCollection
-from matplotlib.patches import Polygon
+from matplotlib.patches import Circle, Wedge, Polygon
 from matplotlib.collections import PatchCollection
 
 im = skimage.io.imread("test.tif")
@@ -166,23 +166,34 @@ imaa = ax.imshow(im_data,origin = 'lower',cmap = 'gray')
 #ax.scatter(np.array(ceri.vertices)[:,0],np.array(ceri.vertices)[:,1], s=60, c='r')
 #plt.axis('square')
 plt.show()
-print(platin.voronoi_cells)
-print(platin.voronoi_bulk)
-print(platin.voronoi_verts)
-print(np.array(platin.voronoi_verts)[np.array(platin.voronoi_cells)[platin.voronoi_bulk][0]])
+
 fig, ax = plt.subplots()
 patches = []
 for cell_nr in range(len(platin.voronoi_bulk)):
     polygon = Polygon(np.array(platin.voronoi_verts)[np.array(platin.voronoi_cells)[platin.voronoi_bulk][cell_nr]], True)
     patches.append(polygon)
-print(patches[0].get_xy())
-p = PatchCollection(patches)
-#colors = np.array(platin.voronoi_rel_size)[platin.voronoi_bulk]
-#print(colors)
-#print(p)
-#p.set_array(colors)
-ax.add_collection(p)
-#fig.colorbar(p, ax=ax)
-#im_data = im.T
-#imaa = ax1.imshow(im_data,origin = 'lower',cmap = 'gray')
+
+for cell_nr in range(len(ceri.voronoi_bulk)):
+    polygon = Polygon(np.array(ceri.voronoi_verts)[np.array(ceri.voronoi_cells)[ceri.voronoi_bulk][cell_nr]], True)
+    patches.append(polygon)
+
+p = PatchCollection(patches,alpha = 0.5,cmap='coolwarm')
+print(np.append(np.array(platin.voronoi_rel_size)[platin.voronoi_bulk],np.array(platin.voronoi_rel_size)[platin.voronoi_bulk]))
+colors = np.append(np.array(platin.voronoi_rel_size)[platin.voronoi_bulk],np.array(ceri.voronoi_rel_size)[ceri.voronoi_bulk])
+p.set_array(colors,)
+boi = ax.add_collection(p)
+fig.colorbar(boi)
+
+a = [np.vstack((np.array(ceri.voronoi_verts)[seg])) for seg in ceri.voronoi_segs]
+line_segments2 = LineCollection(a, linewidths=2,
+                               colors='k', linestyle='solid')
+ax.add_collection(line_segments2)
+a = [np.vstack((np.array(platin.voronoi_verts)[seg])) for seg in platin.voronoi_segs]
+line_segments = LineCollection(a, linewidths=2,
+                               colors='k', linestyle='solid')
+ax.add_collection(line_segments)
+
+ax.autoscale_view()
+im_data = im.T
+imaa = ax.imshow(im_data,origin = 'lower',cmap = 'gray')
 plt.show()
