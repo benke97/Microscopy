@@ -98,6 +98,12 @@ tr.plot(ax,**triangulations[1])
 #ax.tripcolor(np.array(platin.vertices)[:,0], np.array(platin.vertices)[:,1], np.array(platin.triangles),facecolors=np.array(platin.trig_strain), cmap='coolwarm',alpha=0.2, edgecolors='k')
 #ax.tripcolor(np.array(ceri.vertices)[:,0], np.array(ceri.vertices)[:,1], np.array(ceri.triangles),facecolors=np.array(ceri.trig_strain), cmap='coolwarm',alpha=0.2, edgecolors='k')
 
+print(np.shape(np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,0]),np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,1])
+print(np.shape(np.concatenate((np.array(platin.triangles),np.array(ceri.triangles)+np.amax(np.array(platin.triangles)+1)),axis=0)))
+print(np.shape(np.append(np.array(platin.trig_strain),np.array(ceri.trig_strain))))
+
+
+
 boi = ax.tripcolor(np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,0],np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,1],
 np.concatenate((np.array(platin.triangles),np.array(ceri.triangles)+np.amax(np.array(platin.triangles)+1)),axis=0),facecolors=np.append(np.array(platin.trig_strain),
 np.array(ceri.trig_strain)), cmap='coolwarm',alpha=0.5, edgecolors='k')
@@ -124,24 +130,25 @@ vor = Voronoi(platin.vertices)
 print(platin.edges)
 print(platin.segments)
 #print(platin.voronoi_vertices)
-fig, ax = plt.subplots()
+#fig, ax = plt.subplots()
 #voronoi_plot_2d(vor)
 #tr.plot(ax,**triangulations[0])
 #plot lines
-print(np.shape(np.array(platin.triangles)))
-print(np.shape(np.array(platin.points)),len(platin.vertices),platin.points)
+#print(np.shape(np.array(platin.triangles)))
+#print(np.shape(np.array(platin.points)),len(platin.vertices),platin.points)
 #print(np.array(platin.vertices)[platin.triangles[0]], platin.voronoi_verts[0])
+
 #DONT DELETE THIS WAS HARD!
-a = [np.vstack((np.array(platin.voronoi_verts)[seg])) for seg in platin.voronoi_segs]
-line_segments = LineCollection(a, linewidths=2,
-                               colors='b', linestyle='solid')
-ax.add_collection(line_segments)
-im_data = im.T
-imaa = ax.imshow(im_data,origin = 'lower',cmap = 'gray')
+#a = [np.vstack((np.array(platin.voronoi_verts)[seg])) for seg in platin.voronoi_segs]
+#line_segments = LineCollection(a, linewidths=2,
+#                               colors='b', linestyle='solid')
+#ax.add_collection(line_segments)
+#im_data = im.T
+#imaa = ax.imshow(im_data,origin = 'lower',cmap = 'gray')
 #ax.scatter(np.array(platin.voronoi_verts)[:,0],np.array(platin.voronoi_verts)[:,1], s=100, c='k',marker='o')
 #ax.scatter(np.array(platin.vertices)[:,0],np.array(platin.vertices)[:,1], s=60, c='r')
 #plt.axis('square')
-plt.show()
+#plt.show()
 
 print(platin.voronoi_edges)
 fig,ax = plt.subplots()
@@ -167,6 +174,8 @@ imaa = ax.imshow(im_data,origin = 'lower',cmap = 'gray')
 #plt.axis('square')
 plt.show()
 
+
+
 fig, ax = plt.subplots()
 patches = []
 for cell_nr in range(len(platin.voronoi_bulk)):
@@ -177,7 +186,8 @@ for cell_nr in range(len(ceri.voronoi_bulk)):
     polygon = Polygon(np.array(ceri.voronoi_verts)[np.array(ceri.voronoi_cells)[ceri.voronoi_bulk][cell_nr]], True)
     patches.append(polygon)
 
-p = PatchCollection(patches,alpha = 0.5,cmap='coolwarm')
+
+p = PatchCollection(patches,alpha = 0.7,cmap='coolwarm')
 print(np.append(np.array(platin.voronoi_rel_size)[platin.voronoi_bulk],np.array(platin.voronoi_rel_size)[platin.voronoi_bulk]))
 colors = np.append(np.array(platin.voronoi_rel_size)[platin.voronoi_bulk],np.array(ceri.voronoi_rel_size)[ceri.voronoi_bulk])
 p.set_array(colors,)
@@ -197,3 +207,42 @@ ax.autoscale_view()
 im_data = im.T
 imaa = ax.imshow(im_data,origin = 'lower',cmap = 'gray')
 plt.show()
+
+
+
+#im = skimage.io.imread("test3.tif")
+im_data = im.T
+
+fig, ax = plt.subplots()
+patches = []
+for cell_nr in range(len(platin.voronoi_bulk)):
+    polygon = Polygon(np.array(platin.voronoi_verts)[np.array(platin.voronoi_cells)[platin.voronoi_bulk][cell_nr]], True)
+    patches.append(polygon)
+
+p = PatchCollection(patches,alpha = 0.7,cmap='coolwarm')
+colors = np.array(platin.voronoi_rel_size)[platin.voronoi_bulk]
+p.set_array(colors,)
+p.set_clim([-15,15])
+ax.add_collection(p)
+fig.colorbar(p)
+
+a = [np.vstack((np.array(platin.voronoi_verts)[seg])) for seg in platin.voronoi_segs]
+line_segments = LineCollection(a, linewidths=2,
+                               colors='k', linestyle='solid')
+ax.add_collection(line_segments)
+
+ax.autoscale_view()
+im_data = im.T
+imaa = ax.imshow(im_data,origin = 'lower',cmap = 'gray')
+plt.show()
+
+from Plotter import Plotter
+
+a = Plotter([platin,ceri],['platinum','cerium'],im)
+a.plot_voronoi(['platinum','cerium'],strain=True)
+a.plot_voronoi(['platinum','cerium'])
+
+a.plot_displacement_map(['platinum','cerium'])
+a.plot_delaunay(['platinum'],strain=True)
+a.plot_delaunay(['platinum','cerium'])
+a.plot_delaunay(['cerium','platinum'])

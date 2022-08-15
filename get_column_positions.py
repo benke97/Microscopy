@@ -23,12 +23,13 @@ def get_column_positions(im, thresh2, dist2,pixel_size):
     return np.column_stack((x,y))
 
 if __name__ == "__main__":
-    im = skimage.io.imread("test2.tif")
-    refined_positions = get_column_positions(im,0.1,0.1,0.009)
+    im = skimage.io.imread("test3.tif")
+    im_data = im.T
+    refined_positions = get_column_positions(im,0.01,0.09,0.009)
     x = refined_positions[:,1]
     y = refined_positions[:,0]
 
-    im = plt.imread("test2.tif")
+    im = plt.imread("test3.tif")
     implot = plt.imshow(im)
 
     plt.scatter(y, x, c='r', s=40)
@@ -37,7 +38,8 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
     pts = ax.scatter(x, y)
     polygon_select1 = SelectFromCollection(ax, pts)
-    plt.axis('square')
+    #plt.axis('square')
+    imaa = ax.imshow(im_data,origin = 'lower',cmap = 'gray')
     plt.show()
     polygon_select1.disconnect()
     platinum = polygon_select1.xys[polygon_select1.ind]
@@ -46,6 +48,7 @@ if __name__ == "__main__":
 
     fig, ax = plt.subplots()
     coll = ax.scatter(phases[:,0], phases[:,1], color=["blue"]*len(phases), picker = 5, s=[50]*len(phases))
+    imaa = ax.imshow(im_data,origin = 'lower',cmap = 'gray')
     edge_loop_idx = []
     start_pos = 0
 
