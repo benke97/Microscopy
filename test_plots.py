@@ -28,7 +28,7 @@ from matplotlib.collections import PatchCollection
 
 im = skimage.io.imread("test.tif")
 triangulations = []
-names = ['platinum','cerium']
+names = ['boitest','cerium']
 for n in range(len(names)):
     dir_path = os.path.dirname(os.path.realpath(__file__))
     particle = tr.load(dir_path, str(names[n]))
@@ -210,8 +210,8 @@ plt.show()
 
 
 
-#im = skimage.io.imread("test3.tif")
-im_data = im.T
+im3 = skimage.io.imread("test3.tif")
+im_data = im3.T
 
 fig, ax = plt.subplots()
 patches = []
@@ -238,11 +238,12 @@ plt.show()
 
 from Plotter import Plotter
 
-a = Plotter([platin,ceri],['platinum','cerium'],im)
-a.plot_voronoi(['platinum','cerium'],strain=True)
-a.plot_voronoi(['platinum','cerium'])
+a = Plotter([platin,ceri],['platinum','cerium'],im3)
+a.plot_voronoi(['platinum'],strain=True)
+#a.plot_voronoi(['platinum','cerium'])
 
-a.plot_displacement_map(['platinum','cerium'])
+#a.plot_displacement_map(['platinum','cerium'])
 a.plot_delaunay(['platinum'],strain=True)
-a.plot_delaunay(['platinum','cerium'])
-a.plot_delaunay(['cerium','platinum'])
+#a.plot_delaunay(['platinum','cerium'])
+#a.plot_delaunay(['cerium','platinum'],strain=True)
+#a.plot_voronoi(['platinum','cerium'])

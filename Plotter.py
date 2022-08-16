@@ -1,5 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.collections import LineCollection
+from matplotlib.collections import PatchCollection
+from matplotlib.patches import Polygon
 
 class Plotter:
     def __init__(self,materials,names,im):
@@ -48,6 +51,12 @@ class Plotter:
                 vertices = np.concatenate((vertices,np.array(element.vertices)),axis=0)
                 triangles = np.concatenate((triangles,np.array(element.triangles)+np.amax(triangles+1)),axis=0)
                 trig_strain = np.append(trig_strain,np.array(element.trig_strain))
+        for name in names:
+            element = self.get_material(name)
+            a = [np.vstack((np.array(element.vertices)[seg])) for seg in element.edges]
+            line_segments = LineCollection(a, linewidths=2,
+                                colors='k', linestyle='solid')
+            ax.add_collection(line_segments)
         if strain:        
             p = ax.tripcolor(vertices[:,0],vertices[:,1],triangles,facecolors=trig_strain, cmap='coolwarm',alpha=0.5, edgecolors='k')
             fig.colorbar(p)
@@ -66,5 +75,30 @@ class Plotter:
         
     def plot_voronoi(self,names,strain=False,edges=False,**kwargs):
         print(strain)
-        #plot voronoi, optional arguments: include strain, include edge segments, plotstuff
-        print('vorronoy')
+        im_data = self.im.T
+        fig, ax = plt.subplots()
+        ax.imshow(im_data,origin = 'lower',cmap = 'gray')
+        patches = []
+        colors = []
+        for name in names:
+            element = self.get_material(name)
+            print(element.edge_classes)
+            print(element.number_of_connections)
+            if colors == []:
+                colors = np.array(element.voronoi_rel_size)[element.voronoi_bulk]
+            else:
+                colors = np.append(colors,np.array(element.voronoi_rel_size)[element.voronoi_bulk])
+
+            for cell_nr in range(len(element.voronoi_bulk)):
+                polygon = Polygon(np.array(element.voronoi_verts)[np.array(element.voronoi_cells)[element.voronoi_bulk][cell_nr]], True)
+                patches.append(polygon)
+            a = [np.vstack((np.array(element.voronoi_verts)[seg])) for seg in element.voronoi_segs]
+            line_segments = LineCollection(a, linewidths=2,
+                                colors='k', linestyle='solid')
+            ax.add_collection(line_segments)
+        p = PatchCollection(patches,alpha = 0.7,cmap='coolwarm')
+        p.set_array(colors,)
+        p.set_clim([-15,15])
+        ax.add_collection(p)
+        fig.colorbar(p)
+        plt.show()
