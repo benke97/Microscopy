@@ -66,7 +66,7 @@ platin = Material(triangulations[0])
 #plt.show()
 #print(platin.connections)
 
-
+im = skimage.io.imread("test3.tif")
 V = np.array(platin.vertex_displacements[0])
 x,y = -V.T #IMPORTANT MINUS SIGN
 x_dir = x.tolist()
@@ -244,6 +244,8 @@ a.plot_voronoi(['platinum'],strain=True)
 
 #a.plot_displacement_map(['platinum','cerium'])
 a.plot_delaunay(['platinum'],strain=True)
+#print(np.amax(np.array(platin.number_of_connections)))
+#print(platin.number_of_connections[platin.central_vertex])
 #a.plot_delaunay(['platinum','cerium'])
 #a.plot_delaunay(['cerium','platinum'],strain=True)
 #a.plot_voronoi(['platinum','cerium'])

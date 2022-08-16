@@ -88,14 +88,20 @@ class Material:
             #print(sum(vertex_pair.count(i) for vertex_pair in self.edges))
 
     def set_central_vertex(self):
+        #print(self.number_of_connections,vertex_array)
         vertex_array = np.array(self.vertices)
         centroid = np.array([np.sum(vertex_array[:,0])/np.size(vertex_array[:,0]),np.sum(vertex_array[:,1])/np.size(vertex_array[:,1])])
         
-        centroid_topped_vertex_array = np.concatenate(([centroid],vertex_array),axis=0)
+        vertices_with_max_connections = np.array(self.vertices)[np.where(np.array(self.number_of_connections)==np.max(np.array(self.number_of_connections)))[0]]
+        print(self.number_of_connections)
+        print(np.where(np.array(self.number_of_connections)==np.max(np.array(self.number_of_connections)))[0])
+        #print(vertices_with_max_connections)
+        centroid_topped_vertex_array = np.concatenate(([centroid],vertices_with_max_connections),axis=0)
+        print(centroid_topped_vertex_array)
         nbrs = NearestNeighbors(n_neighbors=2, algorithm='auto').fit(centroid_topped_vertex_array)
         distances, indices = nbrs.kneighbors(centroid_topped_vertex_array)
-        index_nn = indices[0,1]
-        self.central_vertex = index_nn-1
+        index_nn = np.where(np.array(self.number_of_connections)==np.max(np.array(self.number_of_connections)))[0][indices[0,1]-1]
+        self.central_vertex = index_nn
 
     def set_connections(self):
 
