@@ -62,6 +62,7 @@ class Plotter:
             fig.colorbar(p)
         else:
             p = ax.tripcolor(vertices[:,0],vertices[:,1],triangles,facecolors=trig_strain, cmap='coolwarm',alpha=0, edgecolors='k')
+        p.set_clim([-35,35])
         #lägg till segments och verts
 
         #boi = ax.tripcolor(np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,0],np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,1],
