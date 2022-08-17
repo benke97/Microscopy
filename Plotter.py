@@ -70,11 +70,11 @@ class Plotter:
         #np.concatenate((np.array(platin.triangles),np.array(ceri.triangles)+np.amax(np.array(platin.triangles)+1)),axis=0)
         plt.show()
         #plot delaunay, optional arguments: include strain, plotstuff
-        print('thelawny')
+        #print('thelawny')
         
         
     def plot_voronoi(self,names,strain=False,edges=False,**kwargs):
-        print(strain)
+        #print(strain)
         im_data = self.im.T
         fig, ax = plt.subplots()
         ax.imshow(im_data,origin = 'lower',cmap = 'gray')
@@ -82,8 +82,8 @@ class Plotter:
         colors = []
         for name in names:
             element = self.get_material(name)
-            print(element.edge_classes)
-            print(element.number_of_connections)
+            #print(element.edge_classes)
+            #print(element.number_of_connections)
             if colors == []:
                 colors = np.array(element.voronoi_rel_size)[element.voronoi_bulk]
             else:
