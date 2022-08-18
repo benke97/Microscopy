@@ -1,0 +1,12 @@
+# ['1601zoomsupport', '1601zoomparticle'].poly
+#
+# A['1601zoomsupport', '1601zoomparticle']particle with X points in 2D, no attributes, one boundary marker.
+0 2 0 1
+# Perimeter
+
+# X segments, each with boundary marker.
+0 1
+# Perimeter
+
+# No holes
+0

@@ -1,4 +1,5 @@
 import skimage
+from skimage import io
 import triangle as tr
 import os 
 from material import Material
@@ -9,8 +10,11 @@ from Plotter import Plotter
 #im = skimage.io.imread("test.tif")
 #names = ['platinum','cerium']
 
-im = skimage.io.imread("test3.tif")
-names = ['boitest']
+#im = skimage.io.imread("1601_110822.tif")
+#names = ['boitest','boitest_particle']
+
+im = skimage.io.imread("1601_110822_2.tif")
+names = ['1601zoomsupport','1601zoomparticle']
 
 materials = []
 for n in range(len(names)):

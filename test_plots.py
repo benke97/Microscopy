@@ -28,7 +28,7 @@ from matplotlib.collections import PatchCollection
 
 im = skimage.io.imread("test.tif")
 triangulations = []
-names = ['boitest','cerium']
+names = ['platinum','cerium']
 for n in range(len(names)):
     dir_path = os.path.dirname(os.path.realpath(__file__))
     particle = tr.load(dir_path, str(names[n]))
@@ -66,7 +66,7 @@ platin = Material(triangulations[0])
 #plt.show()
 #print(platin.connections)
 
-im = skimage.io.imread("test3.tif")
+#im = skimage.io.imread("test3.tif")
 V = np.array(platin.vertex_displacements[0])
 x,y = -V.T #IMPORTANT MINUS SIGN
 x_dir = x.tolist()
@@ -238,7 +238,7 @@ plt.show()
 
 from Plotter import Plotter
 
-a = Plotter([platin,ceri],['platinum','cerium'],im3)
+a = Plotter([platin,ceri],['platinum','cerium'],im)
 a.plot_voronoi(['platinum'],strain=True)
 #a.plot_voronoi(['platinum','cerium'])
 
@@ -249,3 +249,50 @@ a.plot_delaunay(['platinum'],strain=True)
 #a.plot_delaunay(['platinum','cerium'])
 #a.plot_delaunay(['cerium','platinum'],strain=True)
 #a.plot_voronoi(['platinum','cerium'])
+
+from scipy.interpolate import griddata
+grid_x, grid_y = np.mgrid[0:542.5:542.5j, 0:556.5:556.5j]
+print(grid_x)
+def func(disp):
+    return np.array(disp)[:,0]
+rng = np.random.default_rng()
+points = np.array(platin.vertices)
+values = func(platin.vertex_displacements[0])
+
+def func2(disp):
+    return np.array(disp)[:,1]
+values2 = func2(platin.vertex_displacements[0])
+print(points)
+def func3(disp):
+    return np.array(disp)[:,1]+np.array(disp)[:,0]
+values3 = func3(platin.vertex_displacements[0])
+
+def func4(disp):
+    return np.sqrt(np.array(disp)[:,1]**2+np.array(disp)[:,0]**2)
+values4 = func4(platin.vertex_displacements[0])
+
+
+grid_z2 = griddata(points, values, (grid_x, grid_y), method='cubic')
+fig, [[ax1,ax2],[ax3,ax4]] = plt.subplots(nrows=2,ncols=2)
+
+ax1.imshow(im_data,origin = 'lower',cmap = 'gray')
+p1 = ax1.imshow(grid_z2.T, origin='lower',alpha = 1, cmap = "coolwarm")
+
+
+grid_z22 = griddata(points, values2, (grid_x, grid_y), method='cubic')
+ax2.imshow(im_data,origin = 'lower',cmap = 'gray')
+p2 = ax2.imshow(grid_z22.T, origin='lower',alpha = 1, cmap = "coolwarm")
+
+grid_z23 = griddata(points, values3, (grid_x, grid_y), method='cubic')
+ax3.imshow(im_data,origin = 'lower',cmap = 'gray')
+p3 = ax3.imshow(grid_z23.T, origin='lower',alpha = 1, cmap = "coolwarm")
+
+grid_z24 = griddata(points, values4, (grid_x, grid_y), method='cubic')
+ax4.imshow(im_data,origin = 'lower',cmap = 'gray')
+p4 = ax4.imshow(grid_z24.T, origin='lower',alpha = 1, cmap = "coolwarm")
+
+fig.colorbar(p1,ax=ax1,fraction=0.046, pad=0.04)
+fig.colorbar(p2,ax=ax2,fraction=0.046, pad=0.04)
+fig.colorbar(p3,ax=ax3,fraction=0.046, pad=0.04)
+fig.colorbar(p4,ax=ax4,fraction=0.046, pad=0.04)
+plt.show()

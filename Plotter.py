@@ -97,7 +97,7 @@ class Plotter:
             line_segments = LineCollection(a, linewidths=2,
                                 colors='k', linestyle='solid')
             ax.add_collection(line_segments)
-        p = PatchCollection(patches,alpha = 0.7,cmap='coolwarm')
+        p = PatchCollection(patches,alpha = 0.5,cmap='coolwarm')
         p.set_array(colors,)
         p.set_clim([-15,15])
         ax.add_collection(p)
