@@ -46,11 +46,12 @@ class Plotter:
             if vertices == []:
                 vertices = np.array(element.vertices)
                 triangles = np.array(element.triangles)
-                trig_strain = np.array(element.trig_strain)
+                print(np.shape(np.array(element.trig_strain_tensors)))
+                trig_strain = np.array(element.trig_shear_strain)*100
             else:
                 vertices = np.concatenate((vertices,np.array(element.vertices)),axis=0)
                 triangles = np.concatenate((triangles,np.array(element.triangles)+np.amax(triangles+1)),axis=0)
-                trig_strain = np.append(trig_strain,np.array(element.trig_strain))
+                trig_strain = np.append(trig_strain,np.array(element.trig_shear_strain)*100)
         for name in names:
             element = self.get_material(name)
             a = [np.vstack((np.array(element.vertices)[seg])) for seg in element.edges]

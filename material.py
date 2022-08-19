@@ -1,4 +1,5 @@
 from sqlite3 import connect
+from tracemalloc import start
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 import math 
@@ -20,7 +21,7 @@ class Material:
         self.edge_classes = []
         self.center_neighborhood_vectors = []
         self.vertex_displacements = []
-        self.trig_strain = []
+        self.trig_rel_size = []
         self.voronoi_cells = []
         self.voronoi_verts = []
         self.voronoi_segs = []
@@ -29,8 +30,11 @@ class Material:
         self.voronoi_edges = []
         self.voronoi_bulk = []
         self.central_vertex = 0
-        self.points = []
-        self.points2 = []
+        self.trig_strain_tensors = []
+        self.trig_norm_strain_x = []
+        self.trig_norm_strain_y = []
+        self.trig_shear_strain = []
+        self.trig_rotation = []
         self.primitive_vectors = np.zeros((2,2))
         self.neighbors = triangle_object['neighbors'].tolist()
         self.vertices = triangle_object['vertices'].tolist() 
@@ -48,6 +52,7 @@ class Material:
         self.calculate_vertex_displacement()
         self.set_ideal_vertices()
         self.calculate_ideal_triangles()
+        self.calc_trig_rel_size()
         self.calc_trig_strain()
         
         self.calc_voronoi_verts()
@@ -234,7 +239,7 @@ class Material:
 
         #print('hello')
 
-    def calc_trig_strain(self):
+    def calc_trig_rel_size(self):
         i = 0
         for trig in self.triangles:
             a_idx = self.get_edge_index(trig[0],trig[1])
@@ -267,9 +272,59 @@ class Material:
 
             ideal_area = self.calc_trig_area(a_length,b_length,c_length)
             strain_percent = (1-self.triangle_areas[i]/ideal_area)*100
-            self.trig_strain.append(strain_percent)
+            self.trig_rel_size.append(strain_percent)
             i +=1
-                
+
+    def calc_trig_strain(self):
+        for i,triangle in enumerate(self.triangles):
+            
+            #print('A')
+            #print(np.array(self.vertex_displacements)[0])
+            #print(triangle)
+            u0,u1,u2 = np.array(self.vertex_displacements)[0][triangle]
+            #print(u0,u1,u2)
+            d_u1 = u1-u0
+            #print(np.shape(d_u1))
+            d_u2 = u2-u0
+
+            class_vec1 = np.array([2,1])
+            class_vec2 = np.array([1,1])
+            class_vec1 = self.mean_vec_from_classes(triangle[0],triangle[1])
+            class_vec2 = self.mean_vec_from_classes(triangle[0],triangle[2])
+
+            #print(np.array([[class_vec1[0],class_vec2[0]],[class_vec1[1],class_vec2[1]]]))
+            [[eps_xx, e_xy],[e_yx, eps_yy]] = np.array([[d_u1[0], d_u2[0]],[d_u1[1],d_u2[1]]])*np.linalg.inv(np.array([[class_vec1[0],class_vec2[0]],[class_vec1[1],class_vec2[1]]]))
+            print(e_xy == e_yx)
+            print(eps_xx,i)
+            eps_xy = (e_xy+e_yx)/2
+            omega_xy = (e_xy-e_yx)/2
+            self.trig_norm_strain_x.append(eps_xx)
+            self.trig_norm_strain_y.append(eps_yy)
+            self.trig_shear_strain.append(eps_xy)
+            self.trig_rotation.append(omega_xy)
+            self.trig_strain_tensors.append([[eps_xx, eps_xy],[eps_xy, eps_yy]])
+
+
+    def mean_vec_from_classes(self,start_vert,end_vert):
+        class1,class2 = self.edge_classes[self.get_edge_index(start_vert,end_vert)]
+        #print(class1,class2)
+        if class1 == 99 or class2 == 99:
+            #ignore this line segment in the displacement calculations since it has been flagged that
+            #it does not share resemblance with any of the reference vectors
+            #print('ignored segment')
+            return np.array(self.vertices[end_vert])-np.array(self.vertices[start_vert])
+        else:
+            if distance.cosine(-np.array(self.center_neighborhood_vectors[class1]),np.array(self.center_neighborhood_vectors[class2])) <= 1/math.sqrt(2):
+                v = (-np.array(self.center_neighborhood_vectors[class1])+np.array(self.center_neighborhood_vectors[class2]))/2
+                if distance.cosine(v,np.array(self.vertices[end_vert])-np.array(self.vertices[start_vert])) <= 1/math.sqrt(2):
+                    #print('hubbabubba')
+                    return v
+                elif distance.cosine(-v,np.array(self.vertices[end_vert])-np.array(self.vertices[start_vert])) <= 1/math.sqrt(2):
+                    return -v
+                else:
+                    raise ValueError('stranche erroj')
+
+
     def circumcenter(self,trig):
         ax = self.vertices[trig[0]][0]
         ay = self.vertices[trig[0]][1]
