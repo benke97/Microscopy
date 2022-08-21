@@ -100,13 +100,13 @@ tr.plot(ax,**triangulations[1])
 
 print(np.shape(np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,0]),np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,1])
 print(np.shape(np.concatenate((np.array(platin.triangles),np.array(ceri.triangles)+np.amax(np.array(platin.triangles)+1)),axis=0)))
-print(np.shape(np.append(np.array(platin.trig_strain),np.array(ceri.trig_strain))))
+print(np.shape(np.append(np.array(platin.trig_rel_size),np.array(ceri.trig_rel_size))))
 
 
 
 boi = ax.tripcolor(np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,0],np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,1],
-np.concatenate((np.array(platin.triangles),np.array(ceri.triangles)+np.amax(np.array(platin.triangles)+1)),axis=0),facecolors=np.append(np.array(platin.trig_strain),
-np.array(ceri.trig_strain)), cmap='coolwarm',alpha=0.5, edgecolors='k')
+np.concatenate((np.array(platin.triangles),np.array(ceri.triangles)+np.amax(np.array(platin.triangles)+1)),axis=0),facecolors=np.append(np.array(platin.trig_rel_size),
+np.array(ceri.trig_rel_size)), cmap='coolwarm',alpha=0.5, edgecolors='k')
 fig.colorbar(boi)
 plt.show()
 
@@ -154,8 +154,8 @@ print(platin.voronoi_edges)
 fig,ax = plt.subplots()
 
 boi = ax.tripcolor(np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,0],np.concatenate((np.array(platin.vertices),np.array(ceri.vertices)),axis=0)[:,1],
-np.concatenate((np.array(platin.triangles),np.array(ceri.triangles)+np.amax(np.array(platin.triangles)+1)),axis=0),facecolors=np.append(np.array(platin.trig_strain),
-np.array(ceri.trig_strain)), cmap='coolwarm',alpha=0.7, edgecolors='k')
+np.concatenate((np.array(platin.triangles),np.array(ceri.triangles)+np.amax(np.array(platin.triangles)+1)),axis=0),facecolors=np.append(np.array(platin.trig_rel_size),
+np.array(ceri.trig_rel_size)), cmap='coolwarm',alpha=0.7, edgecolors='k')
 
 a = [np.vstack((np.array(ceri.voronoi_verts)[seg])) for seg in ceri.voronoi_segs]
 line_segments = LineCollection(a, linewidths=2,

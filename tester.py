@@ -25,6 +25,7 @@ for n in range(len(names)):
 
 
 a = Plotter(materials,names,im)
+a.plot_strain_tensor(names)
 a.plot_voronoi(names,strain=True)
 a.plot_displacement_map(names)
 a.plot_delaunay(names,strain=True)
