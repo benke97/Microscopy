@@ -3,6 +3,7 @@ import numpy as np
 from matplotlib.collections import LineCollection
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon
+from scipy.interpolate import griddata
 
 class Plotter:
     def __init__(self,materials,names,im):
@@ -164,4 +165,99 @@ class Plotter:
         fig.colorbar(p2,ax=ax2)
         fig.colorbar(p3,ax=ax3)
         fig.colorbar(p4,ax=ax4)
+        plt.show()
+
+
+
+    def displacement_fields(self,names):
+        grid_x, grid_y = np.mgrid[0:542.5:542.5j, 0:556.5:556.5j]
+        im_data = self.im.T
+        element = self.get_material(names[0])
+        def func(disp):
+            return np.array(disp)[:,0]
+        points = np.array(element.vertices)
+        values = func(element.vertex_displacements[0])
+
+        def func2(disp):
+            return np.array(disp)[:,1]
+        values2 = func2(element.vertex_displacements[0])
+        print(points)
+        def func3(disp):
+            return np.array(disp)[:,1]+np.array(disp)[:,0]
+        values3 = func3(element.vertex_displacements[0])
+
+        def func4(disp):
+            return np.sqrt(np.array(disp)[:,1]**2+np.array(disp)[:,0]**2)
+        values4 = func4(element.vertex_displacements[0])
+
+        for name in names:
+            element = self.get_material(name)
+
+        grid_z2 = griddata(points, values, (grid_x, grid_y), method='cubic')
+        fig, [[ax1,ax2],[ax3,ax4]] = plt.subplots(nrows=2,ncols=2)
+
+        ax1.imshow(im_data,origin = 'lower',cmap = 'gray')
+        p1 = ax1.imshow(grid_z2.T, origin='lower',alpha = 1, cmap = "coolwarm")
+
+
+        grid_z22 = griddata(points, values2, (grid_x, grid_y), method='cubic')
+        ax2.imshow(im_data,origin = 'lower',cmap = 'gray')
+        p2 = ax2.imshow(grid_z22.T, origin='lower',alpha = 1, cmap = "coolwarm")
+
+        grid_z23 = griddata(points, values3, (grid_x, grid_y), method='cubic')
+        ax3.imshow(im_data,origin = 'lower',cmap = 'gray')
+        p3 = ax3.imshow(grid_z23.T, origin='lower',alpha = 1, cmap = "coolwarm")
+
+        grid_z24 = griddata(points, values4, (grid_x, grid_y), method='cubic')
+        ax4.imshow(im_data,origin = 'lower',cmap = 'gray')
+        p4 = ax4.imshow(grid_z24.T, origin='lower',alpha = 1, cmap = "coolwarm")
+
+        print(np.shape(np.array(points)))
+        print(np.shape(np.array(values)))
+        fig.colorbar(p1,ax=ax1,fraction=0.046, pad=0.04)
+        fig.colorbar(p2,ax=ax2,fraction=0.046, pad=0.04)
+        fig.colorbar(p3,ax=ax3,fraction=0.046, pad=0.04)
+        fig.colorbar(p4,ax=ax4,fraction=0.046, pad=0.04)
+        plt.show()
+
+    def plot_displacement_field(self,names):
+        grid_x, grid_y = np.mgrid[0:self.im.shape[0]:complex(self.im.shape[0]), 0:self.im.shape[1]:complex(self.im.shape[1])]
+        im_data = self.im.T
+        def func(disp):
+            #Calc magnitude of displacement
+            return np.sqrt(np.array(disp)[:,1]**2+np.array(disp)[:,0]**2)
+
+        points = []
+        values = []
+        for name in names:
+            element = self.get_material(name)
+            if points == []:
+                #print(np.shape(np.array(points)))
+                points = element.vertices
+                #print(np.shape(np.array(points)))
+            else:
+                #print(np.shape(np.array(points)))
+                points = np.concatenate((np.array(points),np.array(element.vertices)),axis=0)
+                #print(np.shape(np.array(points)))
+            if values == []:
+                print('hello')
+                print(np.shape(np.array(values)))
+                values = func(element.vertex_displacements[0])
+                print(np.shape(np.array(values)))
+            else:
+                print(np.shape(np.array(values)))
+                values = np.append(values,func(element.vertex_displacements[0]))
+                print(np.shape(np.array(values)))
+        print(np.shape(values))
+        print(np.shape(np.array(points)))
+
+        grid = griddata(np.array(points), np.array(values), (grid_x, grid_y), method='cubic', fill_value = 0)
+        fig, ax = plt.subplots()
+
+        ax.imshow(im_data,origin = 'lower',cmap = 'gray')
+        p = ax.imshow(grid.T, origin='lower',alpha = 0.5, cmap = "jet")
+        #print(-np.amax(np.array(values)[0]))
+        #print(np.array(values))
+        p.set_clim([0,np.amax(np.array(values)[0])]) 
+        fig.colorbar(p,ax=ax)
         plt.show()

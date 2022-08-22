@@ -23,13 +23,13 @@ def get_column_positions(im, thresh2, dist2,pixel_size):
     return np.column_stack((x,y))
 
 if __name__ == "__main__":
-    im = skimage.io.imread("1601_110822_2.tif")
+    im = skimage.io.imread("test3.tif")
     im_data = im.T
     refined_positions = get_column_positions(im,0.00001,0.03,0.009)
     x = refined_positions[:,1]
     y = refined_positions[:,0]
 
-    im = plt.imread("1601_110822_2.tif")
+    im = plt.imread("test3.tif")
     implot = plt.imshow(im)
 
     plt.scatter(y, x, c='r', s=40)
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     plt.show()
     polygon_select1.disconnect()
     platinum = polygon_select1.xys[polygon_select1.ind]
-    names = '1601zoomparticle'
+    names = 'squaregrid'
     phases = platinum
 
     fig, ax = plt.subplots()
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     from material import Material
     a = Material(t)
 
-    boi = ax.tripcolor(np.array(a.vertices)[:,0],np.array(a.vertices)[:,1], np.array(a.triangles),facecolors=np.array(a.trig_strain), cmap='coolwarm',alpha=0.7, edgecolors='k')
+    boi = ax.tripcolor(np.array(a.vertices)[:,0],np.array(a.vertices)[:,1], np.array(a.triangles),facecolors=np.array(a.trig_rel_size), cmap='coolwarm',alpha=0.7, edgecolors='k')
     fig.colorbar(boi)
     #print(np.amax(np.append(np.array(platin.trig_strain),np.array(ceri.trig_strain))))
     #print(np.amin(np.append(np.array(platin.trig_strain),np.array(ceri.trig_strain))))
