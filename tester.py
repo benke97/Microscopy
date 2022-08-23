@@ -8,12 +8,12 @@ from Plotter import Plotter
 
 "Enter image and the names of the phases"
 #5 LAYER PARTICLE
-#im = skimage.io.imread("test.tif")
-#names = ['platinum','cerium']
+im = skimage.io.imread("test.tif")
+names = ['platinum','cerium']
 
 #LARGE SUPPORT
-im = skimage.io.imread("1601_110822.tif")
-names = ['boitest','boitest_particle']
+#im = skimage.io.imread("1601_110822.tif")
+#names = ['boitest','boitest_particle']
 
 #4 LAYER PARTICLE
 #im = skimage.io.imread("1601_110822_2.tif")
