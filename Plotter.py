@@ -4,6 +4,7 @@ from matplotlib.collections import LineCollection
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon
 from scipy.interpolate import griddata
+from sklearn.decomposition import PCA
 
 class Plotter:
     def __init__(self,materials,names,im):
@@ -240,16 +241,9 @@ class Plotter:
                 points = np.concatenate((np.array(points),np.array(element.vertices)),axis=0)
                 #print(np.shape(np.array(points)))
             if values == []:
-                print('hello')
-                print(np.shape(np.array(values)))
                 values = func(element.vertex_displacements[0])
-                print(np.shape(np.array(values)))
             else:
-                print(np.shape(np.array(values)))
                 values = np.append(values,func(element.vertex_displacements[0]))
-                print(np.shape(np.array(values)))
-        print(np.shape(values))
-        print(np.shape(np.array(points)))
 
         grid = griddata(np.array(points), np.array(values), (grid_x, grid_y), method='cubic', fill_value = 0)
         fig, ax = plt.subplots()
@@ -260,4 +254,17 @@ class Plotter:
         #print(np.array(values))
         p.set_clim([0,np.amax(np.array(values)[0])]) 
         fig.colorbar(p,ax=ax)
+        plt.show()
+
+
+    def PCA_plot(self,names):
+        vertices = np.array([]).reshape(0,2)
+        for name in names:
+            element = self.get_material(name)
+            vertices = np.concatenate((vertices,element.vertices),axis = 0)
+        pca = PCA(n_components=2)
+        X_r = pca.fit(vertices).transform(vertices)
+        
+        fig, ax = plt.subplots()
+        ax.scatter(X_r[:,0],X_r[:,1])
         plt.show()

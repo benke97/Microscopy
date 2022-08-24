@@ -33,6 +33,7 @@ for n in range(len(names)):
 
 a = Plotter(materials,names,im)
 #a.displacement_fields(names)
+a.PCA_plot(names)
 a.plot_displacement_field(names)
 a.plot_strain_tensor(names)
 a.plot_voronoi(names,strain=True)

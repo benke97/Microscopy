@@ -1,28 +1,45 @@
-import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import griddata
-def func(x, y):
-    return x+y
-grid_x, grid_y = np.mgrid[0:1:100j, 0:1:200j]
-rng = np.random.default_rng()
-points = rng.random((1000, 2))
-print(points)
-values = func(points[:,0], points[:,1])
-grid_z0 = griddata(points, values, (grid_x, grid_y), method='nearest')
-grid_z1 = griddata(points, values, (grid_x, grid_y), method='linear')
-grid_z2 = griddata(points, values, (grid_x, grid_y), method='cubic')
-plt.subplot(221)
-plt.imshow(func(grid_x, grid_y).T, extent=(0,1,0,1), origin='lower')
-plt.plot(points[:,0], points[:,1], 'k.', ms=1)
-plt.title('Original')
-plt.subplot(222)
-plt.imshow(grid_z0.T, extent=(0,1,0,1), origin='lower')
-plt.title('Nearest')
-plt.subplot(223)
-plt.imshow(grid_z1.T, extent=(0,1,0,1), origin='lower')
-plt.title('Linear')
-plt.subplot(224)
-plt.imshow(grid_z2.T, extent=(0,1,0,1), origin='lower')
-plt.title('Cubic')
-plt.gcf().set_size_inches(6, 6)
+
+from sklearn import datasets
+from sklearn.decomposition import PCA
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+
+iris = datasets.load_iris()
+
+X = iris.data
+y = iris.target
+target_names = iris.target_names
+
+pca = PCA(n_components=2)
+X_r = pca.fit(X).transform(X)
+
+lda = LinearDiscriminantAnalysis(n_components=2)
+X_r2 = lda.fit(X, y).transform(X)
+
+# Percentage of variance explained for each components
+print(
+    "explained variance ratio (first two components): %s"
+    % str(pca.explained_variance_ratio_)
+)
+
+plt.figure()
+colors = ["navy", "turquoise", "darkorange"]
+lw = 2
+
+for color, i, target_name in zip(colors, [0, 1, 2], target_names):
+    plt.scatter(
+        X_r[y == i, 0], X_r[y == i, 1], color=color, alpha=0.8, lw=lw, label=target_name
+    )
+plt.legend(loc="best", shadow=False, scatterpoints=1)
+plt.title("PCA of IRIS dataset")
+
+plt.figure()
+for color, i, target_name in zip(colors, [0, 1, 2], target_names):
+    plt.scatter(
+        X_r2[y == i, 0], X_r2[y == i, 1], alpha=0.8, color=color, label=target_name
+    )
+plt.legend(loc="best", shadow=False, scatterpoints=1)
+plt.title("LDA of IRIS dataset")
+
 plt.show()
+print(X,y)
