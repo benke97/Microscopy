@@ -9,11 +9,12 @@ from perlin_noise import PerlinNoise
 from scipy.ndimage import binary_dilation as dilate
 from skimage.measure import label, regionprops
 import pandas as pd
+from ase.cluster import wulff_construction
 # %%
 class ObjectGenerator():
     def __init__(self):
         self.support_lattice_constant = 5.3
-        self.particle_lattice_constant = 2.8
+        self.particle_lattice_constant = 1.96 #Actually lattice spacing
         self.particle_radius = 5
         self.interface_spacing = 0.5
         self.epsilon = 1e-10
@@ -178,9 +179,9 @@ class ObjectGenerator():
             for j in range(depth):
                 if delaunay_hull.find_simplex([i, j]) >= 0:
                     particle_map[i, j] = 1
-        particle_map = dilate(particle_map, structure=structuring_element)
-        #particle_map = dilate(particle_map, structure=structuring_element)
-        #particle_map = dilate(particle_map, structure=structuring_element)
+        number_of_dilations = random.randint(1,3)
+        for i in range(number_of_dilations):
+            particle_map = dilate(particle_map, structure=structuring_element)
         return particle_map
 
     def get_positions_from_binary_map(self, binary_map):
@@ -478,26 +479,21 @@ class ObjectGenerator():
             return False
         return np.allclose(arr1, arr2, atol=tol)
     
-    def add_step(self, particle_hull, support_hull, position=None, height=3):
+    def add_step(self, particle_hull, support_hull, position=None, height=2):
 
         if height > len(particle_hull):
             height = len(particle_hull)
 
-        hulls_to_change = particle_hull[0:height]
-        for idx, hull in enumerate(hulls_to_change):
-            interface_center = 0
-            if idx == 0:
-                interface_points = hull.points[:,0:2]
-                interface_center = np.mean(interface_points[:,0:2],axis=0)
-                if position is None:
-                    step_position = self.random_point_in_hull(self.convex_hull(interface_points[:,0:2]))
-                print("interface_center",interface_center)
-                plt.figure()
-                plt.scatter(hull.points[:,0],hull.points[:,1])
-                plt.scatter(interface_center[0],interface_center[1])
-                plt.show()
-        
-
+        #CROP PARTICLE HULLS
+        interface_hull = particle_hull[0]
+        interface_points = np.where(interface_hull.points[:,2]==0)
+        interface_points = interface_hull.points[interface_points]
+        interface_center = np.mean(interface_points[:,0:2],axis=0)
+        if position is None:
+            step_position = self.random_point_in_hull(self.convex_hull(interface_points[:,0:2]))
+        else:
+            step_position = position
+        #step_position = np.array([0.1,0.1])
         vector = step_position-interface_center
         orthogonal_vector = np.array([-vector[1],vector[0]])
         orthogonal_vector /= np.linalg.norm(orthogonal_vector)
@@ -505,55 +501,85 @@ class ObjectGenerator():
         endpoint_2 = step_position-orthogonal_vector*25
         line = np.array([endpoint_1,endpoint_2])
 
+        intersections = []
+        hulls_to_change = particle_hull[0:height]
+        for i, hull in enumerate(hulls_to_change):
+            new_hull = []
+            #splita hull i layers
+            z_values, hull_levels = self.split_hull_by_z(hull)
+            #filtrera points
+            new_points = []
+            for z, level in zip(z_values, hull_levels):
+                filtered_points = self.filter_points(level, line, interface_center)
+                intersection_points = self.get_intersection_points(self.convex_hull(np.array(level)[:,:2]), line)
+                #print("intersection_points",len(intersection_points))
+                intersection_points = self.add_z_coordinate(np.array(intersection_points),z)
+                intersections.append(intersection_points)
 
-
-
-
-
-
-        intersection_points = []
-        new_layers = []
-        for idx, layer in enumerate(layers):
-            layer_points = self.filter_points(layer[:,0:2],line,interface_center)
-            layer_points = self.add_z_coordinate(np.array(layer_points),layer[0,2])
-            intersect_points = self.get_intersection_points(self.convex_hull(layer[:,0:2]),line)
-            intersect_points = self.add_z_coordinate(np.array(intersect_points),layer[0,2])
-            if len(intersect_points) == 2:
-                layer_points = np.concatenate([layer_points,intersect_points],axis=0)
-                intersection_points.append(intersect_points)
-            else:
-                layer_points = layer 
-            new_layers.append(layer_points)
-
-        new_particle_hull = []
-        #Form the new particle hull. At index height, start using the old "layers"
-        for idx, layer in enumerate(new_layers):
-            if idx < height:
-                if idx < len(new_layers)-1:
-                    print("yeboi", idx, len(new_layers)-1)
-                    new_points = np.concatenate([layer,new_layers[idx+1]],axis=0)
-            else:
-                print(idx)
-                if idx < len(new_layers)-1:
-                    new_points = np.concatenate([layers[idx],layers[idx+1]],axis=0)
+                if len(intersection_points) == 2:
+                    level_points = np.concatenate((filtered_points,intersection_points))
                 else:
-                    break
-            new_particle_hull.append(self.convex_hull(new_points))
+                    level_points = level
+                new_points.append(level_points)
+            #plot new_hull and particle_hull[i]
+            new_hull = self.convex_hull(np.concatenate(new_points))
+            old_hull = particle_hull[i]
+            particle_hull[i] = new_hull
+
+        #GENERATE SUPPORT HULL
+
+        max_z = height*self.particle_lattice_constant
+        foundation = support_hull[0].points
+        foundation = foundation[foundation[:,2]==0]
+        filter_foundation = np.array(self.filter_points(foundation, line, interface_center))
+        filtered_out_points = []
+        for point in foundation:
+            if np.any(np.all(point == filter_foundation, axis=1)):
+                continue
+            else:
+                filtered_out_points.append(point)
+        filtered_out_points = np.array(filtered_out_points)
+        intersection_points = self.get_intersection_points(self.convex_hull(foundation[:,:2]), line)
+        intersection_points = self.add_z_coordinate(np.array(intersection_points),0)
+        step_foundation = np.concatenate((filtered_out_points,intersection_points))
+        
+        old_hull_points_max_z = old_hull.points[old_hull.points[:,2]==max_z]
+
+        intersection_points = self.get_intersection_points(self.convex_hull(np.array(old_hull_points_max_z)[:,:2]), line)
+        if intersection_points == []:
+            #step_foundation but with z = max_z
+            step_top_points = step_foundation.copy()
+            step_top_points[:,2] = max_z
+            step_support_hull = self.convex_hull(np.concatenate((step_foundation,step_top_points)))
+            support_hull.append(step_support_hull)
+        else:
+            filtered_old_hull = self.filter_points(old_hull_points_max_z, line, interface_center)
+            filtered_out_old_hull = []
+            for point in old_hull_points_max_z:
+                if np.any(np.all(point == filtered_old_hull, axis=1)):
+                    continue
+                else:
+                    filtered_out_old_hull.append(point)
+            filtered_out_old_hull = np.array(filtered_out_old_hull)
+            intersection_points = self.add_z_coordinate(np.array(intersection_points),max_z)
+
+            step_old_hull = np.concatenate((filtered_out_old_hull,intersection_points))
+            step_support_hull = self.convex_hull(np.concatenate((step_foundation,step_old_hull)))
+            support_hull.append(step_support_hull)
 
         plt.figure()
-        plt.scatter(layers[0][:,0],layers[0][:,1])
+        plt.scatter(foundation[:,0],foundation[:,1],c='red')
+        plt.scatter(particle_hull[0].points[:,0],particle_hull[0].points[:,1],c='blue')
+        plt.scatter(filter_foundation[:,0],filter_foundation[:,1],c='green')
         plt.scatter(interface_center[0],interface_center[1])
-        plt.scatter(step_position[0],step_position[1])
-        plt.scatter(endpoint_1[0],endpoint_1[1])
-        plt.scatter(endpoint_2[0],endpoint_2[1])
-        plt.axis('equal')
-        plt.show()        
+        plt.scatter(filtered_out_points[:,0],filtered_out_points[:,1],c='orange')
+        #plt.scatter(step_old_hull[:,0],step_old_hull[:,1])
+        plt.show()
 
 
-        particle_hull = new_particle_hull
+        #find the points that were filtered out
         return particle_hull, support_hull 
     
-
     def generate_atomic_structure(self):
         #generate bulk Pt and bulk CeO2
         Pt_bulk = self.Pt_lattice(10,10,10)
@@ -575,19 +601,24 @@ class ObjectGenerator():
 # %%
 ob_gen = ObjectGenerator()
 #particle_hull = ob_gen.particle_hull(4,interface_radii=[10,11,8,7],layer_sample_points=[6,6,6,6],centers=[[0,0],[0,0],[0,0],[0,0]])
-particle_hull = ob_gen.particle_hull(3,interface_radii=[12,12,12],layer_sample_points=[6,6,6],centers=[[0,0],[0,0],[0,0]])
+particle_hull = ob_gen.particle_hull(6,interface_radii=[10,11,9,8,7,6],layer_sample_points=[6,6,6,6,6,6],centers=[[0,0],[0,0],[0,0],[0,0],[0,0],[0,0]])
 #print(particle_hull[0].points)
-ob_gen.add_step(particle_hull.copy(),particle_hull.copy())
+for i in range(100):
+    ob_gen.add_step(particle_hull.copy(),particle_hull.copy())
 # %%
 support_hull = ob_gen.support_hull(8,50,50,particle_interface_points=np.array([[5.69638606, 2.88445904, 0],[0.30238439, 6.99237546, 0],[-4.64750397, 4.79482633, 0],[-5.62285321, -1.09368618, 0],[-1.00215511, -4.9157151, 0],[5.76586847, -0.65974722, 0]]))
 print(len(particle_hull),len(support_hull))
 ob_gen.visualize_hull_points(support_hull+particle_hull)
 ob_gen.mayavi_points(support_hull+particle_hull)
 #stepped particle
-particle_hull_2, support_hull = ob_gen.add_step(particle_hull.copy(), support_hull) 
+particle_hull_2, support_hull_2 = ob_gen.add_step(particle_hull.copy(), support_hull) 
 # %%
 Pt_bulk = ob_gen.Pt_lattice(10,10,10)
+#Pt_bulk.z -= 1
 CeO2_bulk = ob_gen.Ceria_lattice(15,15,15)
+#RANDOMLY DISPLACE BULK ATOMS BEFORE FILTERING
+
+
 #plot the lattice, color by label
 #translate label to color
 filtered_Pt=ob_gen.filter_atoms_by_hull(Pt_bulk,particle_hull)
@@ -656,6 +687,10 @@ plt.show()
 print(len(filtered_Pt))
 print(len(filtered_Pt_2))
 
+#print z values of Pt atoms and unique z values of hull points
+
+
+
 #find the points that are in filtered Pt but not in filtered Pt_2 and print their z coordinate
 filtered_Pt_2_points = filtered_Pt_2[['x','y','z']].values
 filtered_Pt_points = filtered_Pt[['x','y','z']].values
@@ -665,7 +700,44 @@ for point in filtered_Pt_points:
         z_values.append(point[2])
 print(z_values)
 
-ob_gen.mayavi_atomic_structure(filtered_atoms_2)
+ob_gen.mayavi_atomic_structure(filtered_atoms)
 
 
+# %%# %%
+from ase.cluster import wulff_construction
+
+surfaces = [(1, 0, 0),(1,1,0), (1, 1, 1)]
+esurf = [1.86, 1.68, 1.49]   # Surface energies.
+lc = 3.9242
+size = 200# Number of atoms
+atoms = wulff_construction('Pt', surfaces, esurf,
+                           size, 'fcc',
+                           rounding='above', latticeconstant=lc)
+#plot atoms with mayavi
+#extract x,y,z coordinates from atoms
+x_coords = atoms.positions[:,0]
+y_coords = atoms.positions[:,1]
+z_coords = atoms.positions[:,2]
+particle = pd.DataFrame({'x': x_coords, 'y': y_coords, 'z': z_coords, 'label': ['Pt']*len(x_coords)})
+#rotate points around axis
+points = np.column_stack((x_coords,y_coords,z_coords))
+points = ob_gen.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
+points = ob_gen.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
+particle = pd.DataFrame({'x': points[:,0], 'y': points[:,1], 'z': points[:,2], 'label': ['Pt']*len(x_coords)})
+
+#if z closer to 0 than epsilon, set z to 0, if z < -epsilon, remove point
+epsilon = 0.0001
+
+particle.loc[abs(particle['z']) < epsilon, 'z'] = 0
+particle = particle[particle['z'] >= 0]
+
+particle.reset_index(drop=True, inplace=True)
+
+ob_gen.mayavi_atomic_structure(particle)
+
+print(len(particle))
+#print number of atoms
+print(len(atoms))
+#print unique z values
+print(np.unique(atoms.positions[:,2]))
 # %%
