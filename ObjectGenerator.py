@@ -601,7 +601,7 @@ class ObjectGenerator():
 # %%
 ob_gen = ObjectGenerator()
 #particle_hull = ob_gen.particle_hull(4,interface_radii=[10,11,8,7],layer_sample_points=[6,6,6,6],centers=[[0,0],[0,0],[0,0],[0,0]])
-particle_hull = ob_gen.particle_hull(6,interface_radii=[10,11,9,8,7,6],layer_sample_points=[6,6,6,6,6,6],centers=[[0,0],[0,0],[0,0],[0,0],[0,0],[0,0]])
+particle_hull = ob_gen.particle_hull(6,interface_radii=[10,11,9,8,7,5],layer_sample_points=[6,6,6,6,6,6],centers=[[0,0],[0,0],[0,0],[0,0],[0,0],[0,0]])
 #print(particle_hull[0].points)
 for i in range(100):
     ob_gen.add_step(particle_hull.copy(),particle_hull.copy())
