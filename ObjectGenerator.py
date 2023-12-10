@@ -18,6 +18,7 @@ class ObjectGenerator():
         self.particle_radius = 5
         self.interface_spacing = 0.5
         self.epsilon = 1e-10
+        self.wulff_db = {"Pt": {"surfaces": [(1, 0, 0),(1,1,0), (1, 1, 1)], "esurf": [1.86, 1.68, 1.49], "lc": 3.9242, "crystal": "fcc"}}
 
     def set_support_lattice_constant(self, support_lattice_constant):
         self.support_lattice_constant = support_lattice_constant
@@ -580,6 +581,64 @@ class ObjectGenerator():
         #find the points that were filtered out
         return particle_hull, support_hull 
     
+    def generate_wulff_particle(self, size, element, rounding="above"):
+        atoms = wulff_construction(element, 
+                                      self.wulff_db[element]["surfaces"], 
+                                      self.wulff_db[element]["esurf"], 
+                                      size,self.wulff_db[element]["crystal"], 
+                                      rounding=rounding, 
+                                      latticeconstant=self.wulff_db[element]["lc"])
+        points = atoms.positions
+        points = self.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
+        points = self.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
+        particle = pd.DataFrame(points, columns=['x', 'y', 'z'])
+        particle['label'] = 'Pt'
+
+        # Set z to 0 if close to 0, and remove points with z < 0
+        epsilon = 0.0001
+        particle.loc[abs(particle['z']) < epsilon, 'z'] = 0
+        particle = particle[particle['z'] >= 0]
+
+        # Reset index and round z values
+        particle.reset_index(drop=True, inplace=True)
+        particle['z'] = particle['z'].round(4)
+        self.mayavi_atomic_structure(particle)
+        return particle
+
+    def hull_from_points(self, points):
+        "Assuming there are distinct levels of z values"
+        z_values = np.unique(points[:,2])
+        hull = []
+        print(z_values)
+        for i,z in enumerate(z_values):
+            if i < len(z_values)-1:
+                print(z,z_values[i+1])
+                hull_section_points = np.concatenate((points[points[:,2]==z],points[points[:,2]==z_values[i+1]]))
+                hull.append(self.convex_hull(hull_section_points))
+        return hull
+    
+    def expand_hull(self, hull, val):
+        new_hull = []
+        for hull_section in hull:
+            zs, levels = self.split_hull_by_z(hull_section)
+            new_hull_section = []
+            for level in levels:
+                center_of_level = np.mean(level, axis=0)
+                print("level",level)
+                print("center_of_level",center_of_level)
+                new_level = []
+                for point in level:
+                    # Create expansion vector
+                    expansion_vector = point - center_of_level
+                    expansion_vector /= np.linalg.norm(expansion_vector[:2])  # Normalize only x and y
+                    expansion_vector[2] = 0  # Keep z-coordinate unchanged
+                    new_point = point + expansion_vector * val
+                    new_level.append(new_point)
+                new_hull_section.append(new_level)
+            new_hull.append(self.convex_hull(np.concatenate(new_hull_section)))
+
+        return new_hull
+
     def generate_atomic_structure(self):
         #generate bulk Pt and bulk CeO2
         Pt_bulk = self.Pt_lattice(10,10,10)
@@ -601,10 +660,10 @@ class ObjectGenerator():
 # %%
 ob_gen = ObjectGenerator()
 #particle_hull = ob_gen.particle_hull(4,interface_radii=[10,11,8,7],layer_sample_points=[6,6,6,6],centers=[[0,0],[0,0],[0,0],[0,0]])
-particle_hull = ob_gen.particle_hull(6,interface_radii=[10,11,9,8,7,5],layer_sample_points=[6,6,6,6,6,6],centers=[[0,0],[0,0],[0,0],[0,0],[0,0],[0,0]])
+particle_hull = ob_gen.particle_hull(5,interface_radii=[10,11,9,8,7],layer_sample_points=[6,6,6,6,6],centers=[[0,0],[0,0],[0,0],[0,0],[0,0]])
 #print(particle_hull[0].points)
-for i in range(100):
-    ob_gen.add_step(particle_hull.copy(),particle_hull.copy())
+#for i in range(100):
+#    ob_gen.add_step(particle_hull.copy(),particle_hull.copy())
 # %%
 support_hull = ob_gen.support_hull(8,50,50,particle_interface_points=np.array([[5.69638606, 2.88445904, 0],[0.30238439, 6.99237546, 0],[-4.64750397, 4.79482633, 0],[-5.62285321, -1.09368618, 0],[-1.00215511, -4.9157151, 0],[5.76586847, -0.65974722, 0]]))
 print(len(particle_hull),len(support_hull))
@@ -732,12 +791,28 @@ particle.loc[abs(particle['z']) < epsilon, 'z'] = 0
 particle = particle[particle['z'] >= 0]
 
 particle.reset_index(drop=True, inplace=True)
-
+particle['z'] = particle['z'].round(4)
 ob_gen.mayavi_atomic_structure(particle)
 
 print(len(particle))
 #print number of atoms
-print(len(atoms))
 #print unique z values
-print(np.unique(atoms.positions[:,2]))
+print(np.unique(particle.z))
+#print number of atoms at each z
+for z in np.unique(atoms.positions[:,2]):
+    print(len(atoms.positions[atoms.positions[:,2]==z]))
+
+# %%
+ob_gen = ObjectGenerator()
+bob = ob_gen.generate_wulff_particle(200,'Pt')
+points = bob[['x','y','z']].values
+boob  = ob_gen.hull_from_points(points)
+boob_2 = ob_gen.expand_hull(boob,0.000000001)
+filtered_Pt=ob_gen.filter_atoms_by_hull(bob,boob_2)
+ob_gen.mayavi_atomic_structure(filtered_Pt)
+print(len(filtered_Pt))
+#visualize hull with lines and filtered_Pt inside
+ob_gen.visualize_hull_points(boob)
+ob_gen.visualize_hull_points(boob_2)
+Pt_bulk = ob_gen.Pt_lattice(10,10,10)
 # %%
