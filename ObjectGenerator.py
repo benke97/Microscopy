@@ -10,6 +10,10 @@ from scipy.ndimage import binary_dilation as dilate
 from skimage.measure import label, regionprops
 import pandas as pd
 from ase.cluster import wulff_construction
+from ase import Atoms
+from ase.calculators.lj import LennardJones
+from ase.optimize import BFGS
+from scipy.spatial import Delaunay
 # %%
 class ObjectGenerator():
     def __init__(self):
@@ -528,8 +532,8 @@ class ObjectGenerator():
             particle_hull[i] = new_hull
 
         #GENERATE SUPPORT HULL
-
-        max_z = height*self.particle_lattice_constant
+        #print("old_hull",old_hull.points)
+        max_z = max(old_hull.points[:,2])
         foundation = support_hull[0].points
         foundation = foundation[foundation[:,2]==0]
         filter_foundation = np.array(self.filter_points(foundation, line, interface_center))
@@ -545,7 +549,7 @@ class ObjectGenerator():
         step_foundation = np.concatenate((filtered_out_points,intersection_points))
         
         old_hull_points_max_z = old_hull.points[old_hull.points[:,2]==max_z]
-
+        print("old_hull_points and max_z",old_hull_points_max_z,max_z)
         intersection_points = self.get_intersection_points(self.convex_hull(np.array(old_hull_points_max_z)[:,:2]), line)
         if intersection_points == []:
             #step_foundation but with z = max_z
@@ -639,6 +643,63 @@ class ObjectGenerator():
 
         return new_hull
 
+    def set_interface_spacing(self, structure_df, interface_spacing):
+        #find lowest z value of particle
+        particle = structure_df[structure_df['label'] == 'Pt']
+        lowest_z = np.min(particle['z'])
+        #find highest z value of support lower than lowest z value of particle
+        support = structure_df[structure_df['label'] == 'Ce']
+        support = support[support['z'] < lowest_z]
+        highest_z = np.max(support['z'])
+        curr_interface_spacing = lowest_z - highest_z
+        #shift particle up by interface_spacing - curr_interface_spacing, edit structure_df
+        structure_df.loc[structure_df['label'] == 'Pt', 'z'] += interface_spacing - curr_interface_spacing
+        return structure_df
+
+
+
+
+    def relax_structure(self, structure_df):
+        positions = structure_df[['x', 'y', 'z']].values
+        labels = structure_df['label'].values
+        new_positions = positions + np.random.normal(0, 0.1, size=positions.shape) 
+        new_df = pd.DataFrame(new_positions, columns=['x', 'y', 'z'])
+        new_df['label'] = labels
+        return new_df
+
+    def remove_overlapping_atoms(self, atom_df, support=["Ce", "O"], particle=["Pt"], threshold=1.5):
+        """
+        Remove atoms from the support that are too close to atoms in the particle.
+
+        Parameters:
+        atom_df (DataFrame): Pandas DataFrame with columns x, y, z, and label.
+        support (list): List of labels for support atoms.
+        particle (list): List of labels for particle atoms.
+        threshold (float): Distance threshold for removing atoms (in angstroms).
+
+        Returns:
+        DataFrame: Modified DataFrame with overlapping atoms removed.
+        """
+        # Filter DataFrame for support and particle atoms
+        support_atoms = atom_df[(atom_df['label'].isin(support)) & (atom_df['z'] > -5)]
+        particle_atoms = atom_df[atom_df['label'].isin(particle)]
+
+        # Identifying support atoms to remove
+        atoms_to_remove = []
+        for _, support_atom in support_atoms.iterrows():
+            for _, particle_atom in particle_atoms.iterrows():
+                # Calculate the distance between the support and particle atom
+                distance = ((support_atom['x'] - particle_atom['x'])**2 +
+                            (support_atom['y'] - particle_atom['y'])**2 +
+                            (support_atom['z'] - particle_atom['z'])**2)**0.5
+                if distance < threshold:
+                    atoms_to_remove.append(support_atom.name)
+                    break  # No need to check other particle atoms for this support atom
+
+        # Remove identified atoms
+        atom_df = atom_df.drop(atoms_to_remove)
+        return atom_df
+    
     def generate_atomic_structure(self):
         #generate bulk Pt and bulk CeO2
         Pt_bulk = self.Pt_lattice(10,10,10)
@@ -805,14 +866,52 @@ for z in np.unique(atoms.positions[:,2]):
 # %%
 ob_gen = ObjectGenerator()
 bob = ob_gen.generate_wulff_particle(200,'Pt')
+CeO2_bulk_test = ob_gen.Ceria_lattice(15,15,15)
+
 points = bob[['x','y','z']].values
-boob  = ob_gen.hull_from_points(points)
-boob_2 = ob_gen.expand_hull(boob,0.000000001)
-filtered_Pt=ob_gen.filter_atoms_by_hull(bob,boob_2)
-ob_gen.mayavi_atomic_structure(filtered_Pt)
-print(len(filtered_Pt))
-#visualize hull with lines and filtered_Pt inside
-ob_gen.visualize_hull_points(boob)
-ob_gen.visualize_hull_points(boob_2)
-Pt_bulk = ob_gen.Pt_lattice(10,10,10)
+particle_hull  = ob_gen.hull_from_points(points)
+particle_hull = ob_gen.expand_hull(particle_hull,0.000000001)
+
+support_hull = ob_gen.support_hull(8,50,50,particle_interface_points=np.array([[5.69638606, 2.88445904, 0],[0.30238439, 6.99237546, 0],[-4.64750397, 4.79482633, 0],[-5.62285321, -1.09368618, 0],[-1.00215511, -4.9157151, 0],[5.76586847, -0.65974722, 0]]))
+print(particle_hull[0].points,support_hull)
+particle_new, support_new = ob_gen.add_step(particle_hull.copy(),support_hull.copy())
+ob_gen.visualize_hull_points(particle_new)
+ob_gen.visualize_hull_points(particle_hull)
+filtered_Pt=ob_gen.filter_atoms_by_hull(bob,particle_new)
+#relaxed_struct = ob_gen.relax_structure(filtered_Pt)
+#ob_gen.mayavi_atomic_structure(relaxed_struct)
+print("Filtered Pt",filtered_Pt)   
+filtered_ceo2 = ob_gen.filter_atoms_by_hull(CeO2_bulk_test,support_new)
+filtered_atoms = pd.concat([filtered_Pt,filtered_ceo2])
+relaxed_struct = ob_gen.set_interface_spacing(filtered_atoms, 2.1)
+relaxed_struct = ob_gen.relax_structure(relaxed_struct)
+#ob_gen.mayavi_atomic_structure(relaxed_struct)
+filtered_atoms.label = filtered_atoms.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
+ob_gen.mayavi_atomic_structure(filtered_atoms)
+# %%
+relaxed_struct = ob_gen.remove_overlapping_atoms(relaxed_struct)
+relaxed_struct.label = relaxed_struct.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
+ob_gen.mayavi_atomic_structure(relaxed_struct)
+# %%
+def save_as_xyz(df, file_name):
+    """
+    Save a DataFrame as an XYZ file.
+
+    Parameters:
+    df (DataFrame): DataFrame containing columns 'x', 'y', 'z', and 'label'.
+    file_name (str): Name of the XYZ file to be saved.
+    """
+    with open(file_name, 'w') as file:
+        # Write the number of atoms as the first line
+        file.write(f'{len(df)}\n')
+        # Write a comment line - can be empty or descriptive
+        file.write('XYZ file generated from DataFrame\n')
+        # Write atom positions
+        for index, row in df.iterrows():
+            file.write(f'{row["label"]} {row["x"]} {row["y"]} {row["z"]}\n')
+
+# Example usage with the provided DataFrame
+
+relaxed_struct.label = relaxed_struct.label.replace({0: 'Ce', 1: 'O', 2: 'Pt'})
+save_as_xyz(relaxed_struct, 'atom_data.xyz')
 # %%
