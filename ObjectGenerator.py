@@ -14,6 +14,7 @@ from ase import Atoms
 from ase.calculators.lj import LennardJones
 from ase.optimize import BFGS
 from scipy.spatial import Delaunay
+from ase.cluster.cubic import FaceCenteredCubic
 # %%
 class ObjectGenerator():
     def __init__(self):
@@ -656,8 +657,22 @@ class ObjectGenerator():
         structure_df.loc[structure_df['label'] == 'Pt', 'z'] += interface_spacing - curr_interface_spacing
         return structure_df
 
-
-
+    def generate_ase_cluster(self, surfaces=[(1, 0, 0), (1, 1, 1), (1, -1, 1)], layers = [4, 3, 0], element='Pt'):
+        
+        atoms = FaceCenteredCubic('Pt', surfaces, layers)
+        points = atoms.positions
+        points -= np.mean(points, axis=0)
+        points = self.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
+        points = self.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
+        points = -points
+        points += np.array([0,0,np.abs(np.min(points[:,2]))])
+        #three decimals
+        points = np.round(points,3)
+        df = pd.DataFrame(points, columns=['x', 'y', 'z'])
+        df['label'] = 2
+        self.mayavi_atomic_structure(df)
+        #print unique x,y,z values
+        print(df['x'].unique(),df['y'].unique(),df['z'].unique())
 
     def relax_structure(self, structure_df):
         positions = structure_df[['x', 'y', 'z']].values
@@ -892,26 +907,5 @@ ob_gen.mayavi_atomic_structure(filtered_atoms)
 relaxed_struct = ob_gen.remove_overlapping_atoms(relaxed_struct)
 relaxed_struct.label = relaxed_struct.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
 ob_gen.mayavi_atomic_structure(relaxed_struct)
-# %%
-def save_as_xyz(df, file_name):
-    """
-    Save a DataFrame as an XYZ file.
-
-    Parameters:
-    df (DataFrame): DataFrame containing columns 'x', 'y', 'z', and 'label'.
-    file_name (str): Name of the XYZ file to be saved.
-    """
-    with open(file_name, 'w') as file:
-        # Write the number of atoms as the first line
-        file.write(f'{len(df)}\n')
-        # Write a comment line - can be empty or descriptive
-        file.write('XYZ file generated from DataFrame\n')
-        # Write atom positions
-        for index, row in df.iterrows():
-            file.write(f'{row["label"]} {row["x"]} {row["y"]} {row["z"]}\n')
-
-# Example usage with the provided DataFrame
-
-relaxed_struct.label = relaxed_struct.label.replace({0: 'Ce', 1: 'O', 2: 'Pt'})
-save_as_xyz(relaxed_struct, 'atom_data.xyz')
+ob_gen.generate_ase_cluster()
 # %%
