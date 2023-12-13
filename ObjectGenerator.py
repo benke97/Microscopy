@@ -15,6 +15,7 @@ from ase.calculators.lj import LennardJones
 from ase.optimize import BFGS
 from scipy.spatial import Delaunay
 from ase.cluster.cubic import FaceCenteredCubic
+import time
 # %%
 class ObjectGenerator():
     def __init__(self):
@@ -134,8 +135,9 @@ class ObjectGenerator():
         }
 
         # Create a Mayavi figure with a white background
+        #set view dir  to 1 0 0 
         mlab.figure(bgcolor=(1, 1, 1))
-
+        
         # Group by label and plot each group
         for label, group in atoms.groupby('label'):
             xyz = group[['x', 'y', 'z']].values
@@ -143,7 +145,8 @@ class ObjectGenerator():
                           mode='sphere', 
                           color=color_map.get(label, (0, 0, 0)),
                           scale_factor=scale_map.get(label, 1))  # Use scale_map for scale_factor
-
+        # Set the view angle along the x-axis
+        mlab.view(azimuth=90, elevation=90)
         # Display the plot
         mlab.show()
 
@@ -263,9 +266,8 @@ class ObjectGenerator():
         rotated_points = rotation_matrix.dot(points.T).T
         return rotated_points
 
-    def Pt_lattice(self, depth, width, height, zone_axis=np.array([0,1,0])):
+    def Pt_lattice(self, depth, width, height, surface_facet='111',particle_rotation=0):
         lattice_constant = 3.9158
-        cell_zone_axis = np.array([0,1,0])
 
         unit_cell = np.array([
             (0, 0, 0),
@@ -299,15 +301,25 @@ class ObjectGenerator():
         z_coords -= np.mean(z_coords)
 
         points = np.column_stack((x_coords,y_coords,z_coords))
-        points = self.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
-        points = self.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
+        if surface_facet == '111':
+            points = self.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
+            points = self.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
+            points = self.rotate_points_around_axis(points, [0,0,1], 50*np.pi/180)
+        if surface_facet == '100':
+            pass
+        if surface_facet == 'random':
+            points = self.rotate_points_around_axis(points, [1,0,0], random.uniform(0,2*np.pi))
+            points = self.rotate_points_around_axis(points, [0,1,0], random.uniform(0,2*np.pi))
+            points = self.rotate_points_around_axis(points, [0,0,1], random.uniform(0,2*np.pi))
 
+        if particle_rotation != 0:
+            points = self.rotate_points_around_axis(points, [0,0,1], particle_rotation*np.pi/180)
         # Create DataFrame
         lattice = pd.DataFrame({'x': points[:,0], 'y': points[:,1], 'z': points[:,2], 'label': labels})
 
         return lattice
 
-    def Ceria_lattice(self, depth, width, height):
+    def Ceria_lattice(self, depth, width, height, surface_facet='111'):
         lattice_constant = 5.4097
         unit_cell = np.array([
             (0, 0, 0),
@@ -353,8 +365,17 @@ class ObjectGenerator():
         z_coords -= np.mean(z_coords)
 
         points = np.column_stack((x_coords,y_coords,z_coords))
-        points = self.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
-        points = self.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
+        if surface_facet == '111':
+            points = self.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
+            points = self.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
+            points = self.rotate_points_around_axis(points, [0,0,1], 50*np.pi/180)
+        if surface_facet == '100':
+            pass
+        
+        if surface_facet == 'random':
+            points = self.rotate_points_around_axis(points, [1,0,0], random.uniform(0,2*np.pi))
+            points = self.rotate_points_around_axis(points, [0,1,0], random.uniform(0,2*np.pi))
+            points = self.rotate_points_around_axis(points, [0,0,1], random.uniform(0,2*np.pi))
 
 
         # Create DataFrame
@@ -586,16 +607,24 @@ class ObjectGenerator():
         #find the points that were filtered out
         return particle_hull, support_hull 
     
-    def generate_wulff_particle(self, size, element, rounding="above"):
+    def generate_wulff_particle(self, size, element,support_facet="111", rounding="above"):
         atoms = wulff_construction(element, 
                                       self.wulff_db[element]["surfaces"], 
                                       self.wulff_db[element]["esurf"], 
                                       size,self.wulff_db[element]["crystal"], 
                                       rounding=rounding, 
                                       latticeconstant=self.wulff_db[element]["lc"])
-        points = atoms.positions
-        points = self.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
-        points = self.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
+        points = atoms.positions-np.mean(atoms.positions,axis=0)
+        if support_facet == "111":
+            points = self.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
+            points = self.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
+            points = self.rotate_points_around_axis(points, [0,0,1], 50*np.pi/180)
+        if support_facet == "100":
+            pass
+        if support_facet == "random":
+            points = self.rotate_points_around_axis(points, [1,0,0], random.uniform(0,2*np.pi))
+            points = self.rotate_points_around_axis(points, [0,1,0], random.uniform(0,2*np.pi))
+            points = self.rotate_points_around_axis(points, [0,0,1], random.uniform(0,2*np.pi))
         particle = pd.DataFrame(points, columns=['x', 'y', 'z'])
         particle['label'] = 'Pt'
 
@@ -607,7 +636,6 @@ class ObjectGenerator():
         # Reset index and round z values
         particle.reset_index(drop=True, inplace=True)
         particle['z'] = particle['z'].round(4)
-        self.mayavi_atomic_structure(particle)
         return particle
 
     def hull_from_points(self, points):
@@ -644,35 +672,48 @@ class ObjectGenerator():
 
         return new_hull
 
-    def set_interface_spacing(self, structure_df, interface_spacing):
-        #find lowest z value of particle
+    def set_interface_spacing(self, structure_df, support_hull, interface_spacing):
+        # Find lowest z value of particle
         particle = structure_df[structure_df['label'] == 'Pt']
         lowest_z = np.min(particle['z'])
-        #find highest z value of support lower than lowest z value of particle
+
+        # Find highest z value of support lower than lowest z value of particle that is NOT in the support_hull[-1]
         support = structure_df[structure_df['label'] == 'Ce']
         support = support[support['z'] < lowest_z]
-        highest_z = np.max(support['z'])
+
+        # Filter out Ce that is in support_hull[-1]
+        highest_z = -np.inf
+        for _, atom in support.iterrows():
+            position = np.array([atom.x, atom.y, atom.z])
+            if not self.point_in_convex_hull(position, support_hull[-1]):
+                if atom.z > highest_z:
+                    highest_z = atom.z
+
+        # Calculate current interface spacing and shift particle up
         curr_interface_spacing = lowest_z - highest_z
-        #shift particle up by interface_spacing - curr_interface_spacing, edit structure_df
         structure_df.loc[structure_df['label'] == 'Pt', 'z'] += interface_spacing - curr_interface_spacing
         return structure_df
 
-    def generate_ase_cluster(self, surfaces=[(1, 0, 0), (1, 1, 1), (1, -1, 1)], layers = [4, 3, 0], element='Pt'):
-        
+    def generate_ase_cluster(self, surfaces=[(1, 0, 0), (1, 1, 1), (1, -1, 1)], layers = [4, 3, 0], element='Pt',support_facet="111"):
         atoms = FaceCenteredCubic('Pt', surfaces, layers)
         points = atoms.positions
         points -= np.mean(points, axis=0)
-        points = self.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
-        points = self.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
+        if support_facet == "111":
+            points = self.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
+            points = self.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
+            points = self.rotate_points_around_axis(points, [0,0,1], 50*np.pi/180)
+        if support_facet == "100":
+            pass
+        if support_facet == "random":
+            points = self.rotate_points_around_axis(points, [1,0,0], random.uniform(0,2*np.pi))
+            points = self.rotate_points_around_axis(points, [0,1,0], random.uniform(0,2*np.pi))
+            points = self.rotate_points_around_axis(points, [0,0,1], random.uniform(0,2*np.pi))
         points = -points
         points += np.array([0,0,np.abs(np.min(points[:,2]))])
-        #three decimals
         points = np.round(points,3)
         df = pd.DataFrame(points, columns=['x', 'y', 'z'])
-        df['label'] = 2
-        self.mayavi_atomic_structure(df)
-        #print unique x,y,z values
-        print(df['x'].unique(),df['y'].unique(),df['z'].unique())
+        df['label'] = element
+        return df
 
     def relax_structure(self, structure_df):
         positions = structure_df[['x', 'y', 'z']].values
@@ -682,7 +723,7 @@ class ObjectGenerator():
         new_df['label'] = labels
         return new_df
 
-    def remove_overlapping_atoms(self, atom_df, support=["Ce", "O"], particle=["Pt"], threshold=1.5):
+    def remove_overlapping_atoms(self, atom_df, support=["Ce", "O"], particle=["Pt"], threshold=1.8):
         """
         Remove atoms from the support that are too close to atoms in the particle.
 
@@ -714,198 +755,152 @@ class ObjectGenerator():
         # Remove identified atoms
         atom_df = atom_df.drop(atoms_to_remove)
         return atom_df
-    
-    def generate_atomic_structure(self):
-        #generate bulk Pt and bulk CeO2
-        Pt_bulk = self.Pt_lattice(10,10,10)
-        CeO2_bulk = self.Ceria_lattice(10,10,10)
-        #rotate to zone axis
 
-        #generate particle and support hulls
-        particle_hull = self.particle_hull(...)
-        support_hull = self.support_hull(...)
+    def get_interface_points(self, particle_hull):
+            points = particle_hull[0].points
 
+            # Create a boolean mask where the Z coordinate is 0
+            mask = points[:, 2] == 0
 
-        #Filter Pt_bulk by particle_hull and CeO2_bulk by support_hull
-        filtered_Pt = self.filter_atoms_by_hull(Pt_bulk,particle_hull)
-        filtered_ceo2 = self.filter_atoms_by_hull(CeO2_bulk,support_hull)
+            # Filter the points
+            particle_interface_points = points[mask]
+            return particle_interface_points
 
+    def generate_atomic_structure(self, particle_type="random", dict_of_parameters=None):
+        if particle_type == "random":
+            
+            hull_layers = dict_of_parameters["hull_layers"]
+            interface_radiis = dict_of_parameters["interface_radiis"]
+            layer_sample_points = dict_of_parameters["layer_sample_points"]
+            centers = dict_of_parameters["centers"]
+            particle_hull = self.particle_hull(hull_layers,interface_radiis,layer_sample_points,centers)
 
-        return 0
+            support_layers = dict_of_parameters["support_layers"]
+            support_depth = dict_of_parameters["support_depth"]
+            support_width = dict_of_parameters["support_width"]
+            particle_interface_points = self.get_interface_points(particle_hull)
+            support_hull = self.support_hull(support_layers,support_depth,support_width,particle_interface_points)
 
-# %%
-ob_gen = ObjectGenerator()
-#particle_hull = ob_gen.particle_hull(4,interface_radii=[10,11,8,7],layer_sample_points=[6,6,6,6],centers=[[0,0],[0,0],[0,0],[0,0]])
-particle_hull = ob_gen.particle_hull(5,interface_radii=[10,11,9,8,7],layer_sample_points=[6,6,6,6,6],centers=[[0,0],[0,0],[0,0],[0,0],[0,0]])
-#print(particle_hull[0].points)
-#for i in range(100):
-#    ob_gen.add_step(particle_hull.copy(),particle_hull.copy())
-# %%
-support_hull = ob_gen.support_hull(8,50,50,particle_interface_points=np.array([[5.69638606, 2.88445904, 0],[0.30238439, 6.99237546, 0],[-4.64750397, 4.79482633, 0],[-5.62285321, -1.09368618, 0],[-1.00215511, -4.9157151, 0],[5.76586847, -0.65974722, 0]]))
-print(len(particle_hull),len(support_hull))
-ob_gen.visualize_hull_points(support_hull+particle_hull)
-ob_gen.mayavi_points(support_hull+particle_hull)
-#stepped particle
-particle_hull_2, support_hull_2 = ob_gen.add_step(particle_hull.copy(), support_hull) 
-# %%
-Pt_bulk = ob_gen.Pt_lattice(10,10,10)
-#Pt_bulk.z -= 1
-CeO2_bulk = ob_gen.Ceria_lattice(15,15,15)
-#RANDOMLY DISPLACE BULK ATOMS BEFORE FILTERING
+            if dict_of_parameters['add_step']:
+                step_height = dict_of_parameters["step_height"]
+                particle_hull, support_hull = self.add_step(particle_hull, support_hull, height=step_height)
+            
+            Pt_bulk = self.Pt_lattice(dict_of_parameters["Pt_bulk_depth"],dict_of_parameters["Pt_bulk_width"],dict_of_parameters["Pt_bulk_height"],dict_of_parameters["particle_surface_facet"],dict_of_parameters["particle_rotation"])
+            CeO2_bulk = self.Ceria_lattice(dict_of_parameters["CeO2_bulk_depth"],dict_of_parameters["CeO2_bulk_width"],dict_of_parameters["CeO2_bulk_height"],dict_of_parameters["surface_facet"])
 
+            #RANDOMLY DISPLACE BULK ATOMS BEFORE FILTERING
+            CeO2_points = CeO2_bulk[['x','y','z']].values
+            random_shift = np.random.uniform(0, 5.3, size=3)
+            CeO2_points_shifted = CeO2_points + random_shift
+            CeO2_bulk[['x','y','z']] = CeO2_points_shifted
 
-#plot the lattice, color by label
-#translate label to color
-filtered_Pt=ob_gen.filter_atoms_by_hull(Pt_bulk,particle_hull)
-filtered_Pt_2=ob_gen.filter_atoms_by_hull(Pt_bulk,particle_hull_2)
-filtered_ceo2 = ob_gen.filter_atoms_by_hull(CeO2_bulk,support_hull)
-Pt_bulk.label = Pt_bulk.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
-CeO2_bulk.label = CeO2_bulk.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(CeO2_bulk.x, CeO2_bulk.y, CeO2_bulk.z, c=CeO2_bulk.label)
-ax.view_init(0, 45)
-ax.set_xlabel('X Label')
-ax.set_ylabel('Y Label')
-ax.set_zlabel('Z Label')
-ax.axis('equal')
-plt.show()
-#%%
-#plot filtered pt and filtered ceo2 in the same frame with mayavi
-filtered_atoms = pd.concat([filtered_Pt_2,filtered_ceo2])
-filtered_atoms_2 = pd.concat([filtered_Pt,filtered_ceo2])
-filtered_atoms_2.label = filtered_atoms_2.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
-filtered_atoms.label = filtered_atoms.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(filtered_atoms.x, filtered_atoms.y, filtered_atoms.z, c=filtered_atoms.label)
-ax.view_init(0, 45)
-ax.set_xlabel('X Label')
-ax.set_ylabel('Y Label')
-ax.set_zlabel('Z Label')
-ax.axis('equal')
-plt.show()
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(filtered_atoms.x, filtered_atoms.y, filtered_atoms.z, c=filtered_atoms.label)
-ax.view_init(90,0)
-ax.set_xlabel('X Label')
-ax.set_ylabel('Y Label')
-ax.set_zlabel('Z Label')
-ax.axis('equal')
-plt.show()
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(filtered_atoms_2.x, filtered_atoms_2.y, filtered_atoms_2.z, c=filtered_atoms_2.label)
-ax.view_init(90,0)
-ax.set_xlabel('X Label')
-ax.set_ylabel('Y Label')
-ax.set_zlabel('Z Label')
-ax.axis('equal')
-plt.show()
-#plot particle_hull and particle_hull_2
-#fig = plt.figure()
-#ax = fig.add_subplot(111, projection='3d')
-#ax.scatter(particle_hull[0].points[:,0], particle_hull[0].points[:,1], particle_hull[0].points[:,2], color='red',s=100)
-#ax.scatter(particle_hull[1].points[:,0], particle_hull[1].points[:,1], particle_hull[1].points[:,2], color='red')
-#ax.scatter(particle_hull_2[0].points[:,0], particle_hull_2[0].points[:,1], particle_hull_2[0].points[:,2], color='blue')
-#ax.scatter(particle_hull_2[1].points[:,0], particle_hull_2[1].points[:,1], particle_hull_2[1].points[:,2], color='blue')
-#ax.view_init(0, 45)
-#ax.set_xlabel('X Label')
-#ax.set_ylabel('Y Label')
-#ax.set_zlabel('Z Label')
-#ax.axis('equal')
-#plt.show()
+            filtered_Pt = self.filter_atoms_by_hull(Pt_bulk,particle_hull)
+            filtered_ceo2 = self.filter_atoms_by_hull(CeO2_bulk,support_hull)
+            filtered_atoms = pd.concat([filtered_Pt,filtered_ceo2])
+            filtered_atoms = self.set_interface_spacing(filtered_atoms,support_hull, 2.2)
+            relaxed_struct = self.relax_structure(filtered_atoms)
+            relaxed_struct = self.remove_overlapping_atoms(relaxed_struct)
+            
+            return relaxed_struct
 
+        elif particle_type == "wulff":
 
-#print number of Pt atoms
-print(len(filtered_Pt))
-print(len(filtered_Pt_2))
+            size = dict_of_parameters["wulff_size"]
+            element = dict_of_parameters["wulff_element"]
+            rounding = dict_of_parameters["wulff_rounding"]
+            wulff_structure = self.generate_wulff_particle(size, element, rounding=rounding, support_facet=dict_of_parameters["particle_surface_facet"])
+            points = wulff_structure[['x','y','z']].values
+            if dict_of_parameters["particle_rotation"] != 0:
+                points = self.rotate_points_around_axis(points, [0,0,1], dict_of_parameters["particle_rotation"])
+                wulff_structure[['x','y','z']] = points
+            particle_hull  = self.hull_from_points(points)
+            particle_hull = self.expand_hull(particle_hull,0.000000001)
+            
+            particle_interface_points = self.get_interface_points(particle_hull)
+            support_layers = dict_of_parameters["support_layers"]
+            support_depth = dict_of_parameters["support_depth"]
+            support_width = dict_of_parameters["support_width"]
+            support_hull = self.support_hull(support_layers,support_depth,support_width,particle_interface_points)
+            CeO2_bulk = self.Ceria_lattice(dict_of_parameters["CeO2_bulk_depth"],dict_of_parameters["CeO2_bulk_width"],dict_of_parameters["CeO2_bulk_height"],dict_of_parameters["surface_facet"])
+            #RANDOMLY DISPLACE BULK ATOMS BEFORE FILTERING within one unit cell
+            CeO2_points = CeO2_bulk[['x','y','z']].values
+            random_shift = np.random.uniform(0, 5.3, size=3)
+            CeO2_points_shifted = CeO2_points + random_shift
+            CeO2_bulk[['x','y','z']] = CeO2_points_shifted
+        
 
-#print z values of Pt atoms and unique z values of hull points
+            if dict_of_parameters['add_step']:
+                step_height = dict_of_parameters["step_height"]
+                particle_hull, support_hull = self.add_step(particle_hull, support_hull, height=step_height)
+            
+            filtered_Pt = ob_gen.filter_atoms_by_hull(wulff_structure,particle_hull) 
+            filtered_ceo2 = ob_gen.filter_atoms_by_hull(CeO2_bulk,support_hull)
 
+            filtered_atoms = pd.concat([filtered_Pt,filtered_ceo2])
+            filtered_atoms = ob_gen.set_interface_spacing(filtered_atoms,support_hull, 2.2)
+            relaxed_struct = ob_gen.relax_structure(filtered_atoms)
+            relaxed_struct = ob_gen.remove_overlapping_atoms(relaxed_struct)
+            return relaxed_struct
 
+        elif particle_type == "cluster":
+            surfaces = dict_of_parameters["cluster_surfaces"]
+            layers = dict_of_parameters["cluster_layers"]
+            element = dict_of_parameters["cluster_element"]
+            cluster_structure = self.generate_ase_cluster(surfaces, layers, element, dict_of_parameters["particle_surface_facet"])
+            points = cluster_structure[['x','y','z']].values
+            if dict_of_parameters["particle_rotation"] != 0:
+                points = self.rotate_points_around_axis(points, [0,0,1], dict_of_parameters["particle_rotation"])
+                cluster_structure[['x','y','z']] = points
+            particle_hull  = self.hull_from_points(points)
+            particle_hull = self.expand_hull(particle_hull,0.000000001)
 
-#find the points that are in filtered Pt but not in filtered Pt_2 and print their z coordinate
-filtered_Pt_2_points = filtered_Pt_2[['x','y','z']].values
-filtered_Pt_points = filtered_Pt[['x','y','z']].values
-z_values = []
-for point in filtered_Pt_points:
-    if not np.any(np.all(point == filtered_Pt_2_points,axis=1)):
-        z_values.append(point[2])
-print(z_values)
+            particle_interface_points = self.get_interface_points(particle_hull)
+            support_layers = dict_of_parameters["support_layers"]
+            support_depth = dict_of_parameters["support_depth"]
+            support_width = dict_of_parameters["support_width"]
+            support_hull = self.support_hull(support_layers,support_depth,support_width,particle_interface_points)
+            CeO2_bulk = self.Ceria_lattice(dict_of_parameters["CeO2_bulk_depth"],dict_of_parameters["CeO2_bulk_width"],dict_of_parameters["CeO2_bulk_height"],dict_of_parameters["surface_facet"])
+            #RANDOMLY DISPLACE BULK ATOMS BEFORE FILTERING
+            CeO2_points = CeO2_bulk[['x','y','z']].values
+            random_shift = np.random.uniform(0, 5.3, size=3)
+            CeO2_points_shifted = CeO2_points + random_shift
+            CeO2_bulk[['x','y','z']] = CeO2_points_shifted
 
-ob_gen.mayavi_atomic_structure(filtered_atoms)
+            if dict_of_parameters['add_step']:
+                step_height = dict_of_parameters["step_height"]
+                particle_hull, support_hull = self.add_step(particle_hull, support_hull, height=step_height)
 
+            filtered_Pt = ob_gen.filter_atoms_by_hull(cluster_structure,particle_hull)
+            filtered_ceo2 = ob_gen.filter_atoms_by_hull(CeO2_bulk,support_hull)
 
-# %%# %%
-from ase.cluster import wulff_construction
-
-surfaces = [(1, 0, 0),(1,1,0), (1, 1, 1)]
-esurf = [1.86, 1.68, 1.49]   # Surface energies.
-lc = 3.9242
-size = 200# Number of atoms
-atoms = wulff_construction('Pt', surfaces, esurf,
-                           size, 'fcc',
-                           rounding='above', latticeconstant=lc)
-#plot atoms with mayavi
-#extract x,y,z coordinates from atoms
-x_coords = atoms.positions[:,0]
-y_coords = atoms.positions[:,1]
-z_coords = atoms.positions[:,2]
-particle = pd.DataFrame({'x': x_coords, 'y': y_coords, 'z': z_coords, 'label': ['Pt']*len(x_coords)})
-#rotate points around axis
-points = np.column_stack((x_coords,y_coords,z_coords))
-points = ob_gen.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
-points = ob_gen.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
-particle = pd.DataFrame({'x': points[:,0], 'y': points[:,1], 'z': points[:,2], 'label': ['Pt']*len(x_coords)})
-
-#if z closer to 0 than epsilon, set z to 0, if z < -epsilon, remove point
-epsilon = 0.0001
-
-particle.loc[abs(particle['z']) < epsilon, 'z'] = 0
-particle = particle[particle['z'] >= 0]
-
-particle.reset_index(drop=True, inplace=True)
-particle['z'] = particle['z'].round(4)
-ob_gen.mayavi_atomic_structure(particle)
-
-print(len(particle))
-#print number of atoms
-#print unique z values
-print(np.unique(particle.z))
-#print number of atoms at each z
-for z in np.unique(atoms.positions[:,2]):
-    print(len(atoms.positions[atoms.positions[:,2]==z]))
+            filtered_atoms = pd.concat([filtered_Pt,filtered_ceo2])
+            filtered_atoms = ob_gen.set_interface_spacing(filtered_atoms,support_hull, 2.2)
+            relaxed_struct = ob_gen.relax_structure(filtered_atoms)
+            relaxed_struct = ob_gen.remove_overlapping_atoms(relaxed_struct)
+            return relaxed_struct
 
 # %%
 ob_gen = ObjectGenerator()
-bob = ob_gen.generate_wulff_particle(200,'Pt')
-CeO2_bulk_test = ob_gen.Ceria_lattice(15,15,15)
-
-points = bob[['x','y','z']].values
-particle_hull  = ob_gen.hull_from_points(points)
-particle_hull = ob_gen.expand_hull(particle_hull,0.000000001)
-
-support_hull = ob_gen.support_hull(8,50,50,particle_interface_points=np.array([[5.69638606, 2.88445904, 0],[0.30238439, 6.99237546, 0],[-4.64750397, 4.79482633, 0],[-5.62285321, -1.09368618, 0],[-1.00215511, -4.9157151, 0],[5.76586847, -0.65974722, 0]]))
-print(particle_hull[0].points,support_hull)
-particle_new, support_new = ob_gen.add_step(particle_hull.copy(),support_hull.copy())
-ob_gen.visualize_hull_points(particle_new)
-ob_gen.visualize_hull_points(particle_hull)
-filtered_Pt=ob_gen.filter_atoms_by_hull(bob,particle_new)
-#relaxed_struct = ob_gen.relax_structure(filtered_Pt)
-#ob_gen.mayavi_atomic_structure(relaxed_struct)
-print("Filtered Pt",filtered_Pt)   
-filtered_ceo2 = ob_gen.filter_atoms_by_hull(CeO2_bulk_test,support_new)
-filtered_atoms = pd.concat([filtered_Pt,filtered_ceo2])
-relaxed_struct = ob_gen.set_interface_spacing(filtered_atoms, 2.1)
-relaxed_struct = ob_gen.relax_structure(relaxed_struct)
-#ob_gen.mayavi_atomic_structure(relaxed_struct)
-filtered_atoms.label = filtered_atoms.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
-ob_gen.mayavi_atomic_structure(filtered_atoms)
+start_time = time.time()
+test_struct = ob_gen.generate_atomic_structure("random",dict_of_parameters={"hull_layers":3,"interface_radiis":[10,11,9],"layer_sample_points":[6,6,6],"centers":[[0,0],[0,0],[0,0]],"support_layers":8,"support_depth":50,"support_width":50,"Pt_bulk_depth":10,"Pt_bulk_width":10,"Pt_bulk_height":10,"CeO2_bulk_depth":20,"CeO2_bulk_width":20,"CeO2_bulk_height":20,"add_step":False,"step_height":2,"surface_facet":"111","particle_surface_facet":"111", "particle_rotation":0})
+end_time = time.time()
+print("time:",end_time-start_time)
+test_struct.label = test_struct.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
+ob_gen.mayavi_atomic_structure(test_struct)
 # %%
-relaxed_struct = ob_gen.remove_overlapping_atoms(relaxed_struct)
-relaxed_struct.label = relaxed_struct.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
-ob_gen.mayavi_atomic_structure(relaxed_struct)
-ob_gen.generate_ase_cluster()
+ob_gen = ObjectGenerator()
+start_time = time.time()
+test_wulff = ob_gen.generate_atomic_structure("wulff",dict_of_parameters={"wulff_size":200,"wulff_element":"Pt","wulff_rounding":"above","support_layers":8,"support_depth":50,"support_width":50,"CeO2_bulk_depth":20,"CeO2_bulk_width":20,"CeO2_bulk_height":20,"add_step":True,"step_height":2,"surface_facet":"100","particle_surface_facet":"111","particle_rotation":0})
+end_time = time.time()
+print("time:",end_time-start_time)
+test_wulff.label = test_wulff.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
+ob_gen.mayavi_atomic_structure(test_wulff)
+# %%
+ob_gen = ObjectGenerator()
+start_time = time.time()
+test_cluster = ob_gen.generate_atomic_structure("cluster",dict_of_parameters={"cluster_surfaces":[(1, 0, 0), (1, 1, 1), (1, -1, 1)],"cluster_layers":[4,3,0],"cluster_element":"Pt","support_layers":8,"support_depth":50,"support_width":50,"CeO2_bulk_depth":20,"CeO2_bulk_width":20,"CeO2_bulk_height":20,"add_step":True,"step_height":2,"surface_facet":"100","particle_surface_facet":"111","particle_rotation":0})
+end_time = time.time()
+print("time:",end_time-start_time)
+test_cluster.label = test_cluster.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
+ob_gen.mayavi_atomic_structure(test_cluster)
 # %%
