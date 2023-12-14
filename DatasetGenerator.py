@@ -32,58 +32,70 @@ class DatasetGenerator():
         Composition = [num_random,num_wulff,num_cluster] """
         assert sum(composition) == num_structures, "The sum of the composition must equal the number of structures"
         dfs = []
-        for i in range(num_structures):
-            print((i))
-            if composition[0] > 0: # Random structure
-                dict_of_parameters = self.ParameterRandomizer.randomize_parameters("random")
-                dict_of_parameters = self.add_to_dict(dict_of_parameters,{"support_layers":support_layers,
-                                                                            "support_depth":support_depth,
-                                                                            "support_width":support_width,
-                                                                            "CeO2_bulk_depth":CeO2_bulk_depth,
-                                                                            "CeO2_bulk_width":CeO2_bulk_width,
-                                                                            "CeO2_bulk_height":CeO2_bulk_height,
-                                                                            "Pt_bulk_depth":Pt_bulk_depth,
-                                                                            "Pt_bulk_width":Pt_bulk_width,
-                                                                            "Pt_bulk_height":Pt_bulk_height})
-                structure_df = self.obj_gen.generate_atomic_structure("random",dict_of_parameters)
-                structure_df["structure_type"] = "random"
-                dfs.append(structure_df)
-            if composition[1] > 0: # Wulff structure
-                dict_of_parameters = self.ParameterRandomizer.randomize_parameters("wulff")
-                print("wulff size",dict_of_parameters["wulff_size"])
-                dict_of_parameters = self.add_to_dict(dict_of_parameters,{"support_layers":support_layers,
-                                                                            "support_depth":support_depth,
-                                                                            "support_width":support_width,
-                                                                            "CeO2_bulk_depth":CeO2_bulk_depth,
-                                                                            "CeO2_bulk_width":CeO2_bulk_width,
-                                                                            "CeO2_bulk_height":CeO2_bulk_height,
-                                                                            "wulff_element":wulff_element,
-                                                                            "wulff_rounding":wulff_rounding})
-                structure_df = self.obj_gen.generate_atomic_structure("wulff",dict_of_parameters)
-                structure_df["structure_type"] = "wulff"
-                dfs.append(structure_df)
-                visu = structure_df.copy()
-                visu.label = visu.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
-                #self.obj_gen.mayavi_atomic_structure(visu)
+        j = 0
+        for i in range(composition[0]): # Random structure
+            dict_of_parameters = self.ParameterRandomizer.randomize_parameters("random")
+            dict_of_parameters = self.add_to_dict(dict_of_parameters,{"support_layers":support_layers,
+                                                                        "support_depth":support_depth,
+                                                                        "support_width":support_width,
+                                                                        "CeO2_bulk_depth":CeO2_bulk_depth,
+                                                                        "CeO2_bulk_width":CeO2_bulk_width,
+                                                                        "CeO2_bulk_height":CeO2_bulk_height,
+                                                                        "Pt_bulk_depth":Pt_bulk_depth,
+                                                                        "Pt_bulk_width":Pt_bulk_width,
+                                                                        "Pt_bulk_height":Pt_bulk_height})
+            structure_df = self.obj_gen.generate_atomic_structure("random",dict_of_parameters)
+            structure_df["structure_type"] = "random"
+            dfs.append(structure_df)
+            visu = structure_df.copy()
+            visu.label = visu.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
+            j += 1
+            print(j)
+            #self.obj_gen.mayavi_atomic_structure(visu)
+
+        for i in range(composition[1]):
+            dict_of_parameters = self.ParameterRandomizer.randomize_parameters("wulff")
+            #print("wulff size",dict_of_parameters["wulff_size"])
+            dict_of_parameters = self.add_to_dict(dict_of_parameters,{"support_layers":support_layers,
+                                                                        "support_depth":support_depth,
+                                                                        "support_width":support_width,
+                                                                        "CeO2_bulk_depth":CeO2_bulk_depth,
+                                                                        "CeO2_bulk_width":CeO2_bulk_width,
+                                                                        "CeO2_bulk_height":CeO2_bulk_height,
+                                                                        "wulff_element":wulff_element,
+                                                                        "wulff_rounding":wulff_rounding})
+            structure_df = self.obj_gen.generate_atomic_structure("wulff",dict_of_parameters)
+            structure_df["structure_type"] = "wulff"
+            dfs.append(structure_df)
+            visu = structure_df.copy()
+            visu.label = visu.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
+            j += 1
+            print(j)
+            #self.obj_gen.mayavi_atomic_structure(visu)
             
-            if composition[2] > 0: # Cluster structure
-                dict_of_parameters = self.ParameterRandomizer.randomize_parameters("cluster")
-                dict_of_parameters = self.add_to_dict(dict_of_parameters,{"support_layers":support_layers,
-                                                                            "support_depth":support_depth,
-                                                                            "support_width":support_width,
-                                                                            "CeO2_bulk_depth":CeO2_bulk_depth,
-                                                                            "particle_support_facet":"111",
-                                                                            "CeO2_bulk_width":CeO2_bulk_width,
-                                                                            "CeO2_bulk_height":CeO2_bulk_height,
-                                                                            "cluster_element":cluster_element})
-                structure_df = self.obj_gen.generate_atomic_structure("cluster",dict_of_parameters)
-                structure_df["structure_type"] = "cluster"
-                dfs.append(structure_df)
+        for i in range(composition[2]):
+            dict_of_parameters = self.ParameterRandomizer.randomize_parameters("cluster")
+            dict_of_parameters = self.add_to_dict(dict_of_parameters,{"support_layers":support_layers,
+                                                                        "support_depth":support_depth,
+                                                                        "support_width":support_width,
+                                                                        "CeO2_bulk_depth":CeO2_bulk_depth,
+                                                                        "particle_surface_facet":"111",
+                                                                        "CeO2_bulk_width":CeO2_bulk_width,
+                                                                        "CeO2_bulk_height":CeO2_bulk_height,
+                                                                        "cluster_element":cluster_element})
+            structure_df = self.obj_gen.generate_atomic_structure("cluster",dict_of_parameters)
+            structure_df["structure_type"] = "cluster"
+            dfs.append(structure_df)
+            visu = structure_df.copy()
+            visu.label = visu.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
+            j += 1
+            print(j)
+            #elf.obj_gen.mayavi_atomic_structure(visu)
 
         dataset = pd.concat(dfs,ignore_index=True)
         self.save_dataset(dataset)
 #%%
 data_gen = DatasetGenerator(os.getcwd())
-data_gen.generate_dataset(100,[0,100,0])
+data_gen.generate_dataset(300,[100,100,100])
 
 #%%
