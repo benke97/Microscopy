@@ -446,23 +446,22 @@ class ObjectGenerator():
 
     def get_intersection_points(self, hull, line):
         
-        def line_intersection(A1, B1, C1, A2, B2, C2):
+        def line_intersection(A1, B1, C1, A2, B2, C2, tolerance=1e-9):
             # Calculate the intersection of two lines given by A1x + B1y = C1 and A2x + B2y = C2
             determinant = A1 * B2 - A2 * B1
-            if determinant == 0:
-                return None  # Lines are parallel or coincident
+            if abs(determinant) < tolerance:
+                return None  # Lines are parallel or coincident within a tolerance
             x = (C1 * B2 - C2 * B1) / determinant
             y = (A1 * C2 - A2 * C1) / determinant
             return np.array([x, y])
 
-        def is_point_on_line_segment(p, line_start, line_end):
-            # Check if a point is on the line segment defined by line_start and line_end
-            return np.min([line_start[0], line_end[0]]) <= p[0] <= np.max([line_start[0], line_end[0]]) and \
-                np.min([line_start[1], line_end[1]]) <= p[1] <= np.max([line_start[1], line_end[1]])
-        
+        def is_point_on_line_segment(p, line_start, line_end, tolerance=1e-9):
+            # Check if a point is within the bounding rectangle defined by line_start and line_end, with a tolerance
+            return (np.min([line_start[0], line_end[0]]) - tolerance <= p[0] <= np.max([line_start[0], line_end[0]]) + tolerance) and \
+                (np.min([line_start[1], line_end[1]]) - tolerance <= p[1] <= np.max([line_start[1], line_end[1]]) + tolerance)
+
         intersections = []
         A1, B1, C1 = self.get_line_equation(line[0], line[1])
-
         for simplex in hull.simplices:
             p1, p2 = hull.points[simplex[0]], hull.points[simplex[1]]
             A2, B2, C2 = self.get_line_equation(p1, p2)
@@ -498,14 +497,6 @@ class ObjectGenerator():
         
         return filtered_points
     
-
-        """
-        Check if two arrays are equal with a given tolerance.
-        """
-        if arr1.shape != arr2.shape:
-            return False
-        return np.allclose(arr1, arr2, atol=tol)
-    
     def add_step(self, particle_hull, support_hull, position=None, height=2):
 
         if height > len(particle_hull):
@@ -517,15 +508,18 @@ class ObjectGenerator():
         interface_points = interface_hull.points[interface_points]
         interface_center = np.mean(interface_points[:,0:2],axis=0)
         if position is None:
+            #print("hull 1")
             step_position = self.random_point_in_hull(self.convex_hull(interface_points[:,0:2]))
         else:
             step_position = position
         #step_position = np.array([0.1,0.1])
         vector = step_position-interface_center
+        if np.all(np.isclose(vector, [0, 0])):
+            vector = np.array([0.1, 0.1])
         orthogonal_vector = np.array([-vector[1],vector[0]])
         orthogonal_vector /= np.linalg.norm(orthogonal_vector)
-        endpoint_1 = step_position+orthogonal_vector*25
-        endpoint_2 = step_position-orthogonal_vector*25
+        endpoint_1 = step_position+orthogonal_vector*50
+        endpoint_2 = step_position-orthogonal_vector*50
         line = np.array([endpoint_1,endpoint_2])
 
         intersections = []
@@ -538,6 +532,10 @@ class ObjectGenerator():
             new_points = []
             for z, level in zip(z_values, hull_levels):
                 filtered_points = self.filter_points(level, line, interface_center)
+                #print("hull 2")
+                if len(level) <= 2:
+                    new_points.append(level)
+                    continue
                 intersection_points = self.get_intersection_points(self.convex_hull(np.array(level)[:,:2]), line)
                 #print("intersection_points",len(intersection_points))
                 intersection_points = self.add_z_coordinate(np.array(intersection_points),z)
@@ -549,7 +547,10 @@ class ObjectGenerator():
                     level_points = level
                 new_points.append(level_points)
             #plot new_hull and particle_hull[i]
+            #print("hull 3")
+            #print("new_points",new_points)
             new_hull = self.convex_hull(np.concatenate(new_points))
+            #print("new_hull",new_hull.points)
             old_hull = particle_hull[i]
             particle_hull[i] = new_hull
 
@@ -566,33 +567,56 @@ class ObjectGenerator():
             else:
                 filtered_out_points.append(point)
         filtered_out_points = np.array(filtered_out_points)
+        #print("hull 4")
         intersection_points = self.get_intersection_points(self.convex_hull(foundation[:,:2]), line)
         intersection_points = self.add_z_coordinate(np.array(intersection_points),0)
+        if intersection_points.shape[0] == 1:
+            #print("hull 5")
+            convhull = self.convex_hull(foundation[:,:2])
+            convhull_points = convhull.points
+            plt.figure()
+            plt.scatter(foundation[:,0],foundation[:,1],c='red')
+            plt.scatter(line[:,0],line[:,1],c='blue')
+            plt.scatter(intersection_points[:,0],intersection_points[:,1],c='green')
+            plt.scatter(convhull_points[:,0],convhull_points[:,1],c='orange')
+            plt.show()
+
         step_foundation = np.concatenate((filtered_out_points,intersection_points))
         
         old_hull_points_max_z = old_hull.points[old_hull.points[:,2]==max_z]
+        #this is the last (lowest z) particle layer not edited by the step
         #print("old_hull_points and max_z",old_hull_points_max_z,max_z)
-        intersection_points = self.get_intersection_points(self.convex_hull(np.array(old_hull_points_max_z)[:,:2]), line)
-        if intersection_points == []:
-            #step_foundation but with z = max_z
+        #print("hull 6")
+        #print("old_hull_points_max_z",old_hull_points_max_z)
+        #print("max_z",max_z)
+        if len(old_hull_points_max_z) <= 2:
             step_top_points = step_foundation.copy()
             step_top_points[:,2] = max_z
             step_support_hull = self.convex_hull(np.concatenate((step_foundation,step_top_points)))
             support_hull.append(step_support_hull)
         else:
-            filtered_old_hull = self.filter_points(old_hull_points_max_z, line, interface_center)
-            filtered_out_old_hull = []
-            for point in old_hull_points_max_z:
-                if np.any(np.all(point == filtered_old_hull, axis=1)):
-                    continue
-                else:
-                    filtered_out_old_hull.append(point)
-            filtered_out_old_hull = np.array(filtered_out_old_hull)
-            intersection_points = self.add_z_coordinate(np.array(intersection_points),max_z)
-
-            step_old_hull = np.concatenate((filtered_out_old_hull,intersection_points))
-            step_support_hull = self.convex_hull(np.concatenate((step_foundation,step_old_hull)))
-            support_hull.append(step_support_hull)
+            intersection_points = self.get_intersection_points(self.convex_hull(np.array(old_hull_points_max_z)[:,:2]), line)
+            if intersection_points == []:
+                #step_foundation but with z = max_z
+                step_top_points = step_foundation.copy()
+                step_top_points[:,2] = max_z
+                #print("hull 7")
+                step_support_hull = self.convex_hull(np.concatenate((step_foundation,step_top_points)))
+                support_hull.append(step_support_hull)
+            else:
+                filtered_old_hull = self.filter_points(old_hull_points_max_z, line, interface_center)
+                filtered_out_old_hull = []
+                for point in old_hull_points_max_z:
+                    if np.any(np.all(point == filtered_old_hull, axis=1)):
+                        continue
+                    else:
+                        filtered_out_old_hull.append(point)
+                filtered_out_old_hull = np.array(filtered_out_old_hull)
+                intersection_points = self.add_z_coordinate(np.array(intersection_points),max_z)
+                step_old_hull = np.concatenate((filtered_out_old_hull,intersection_points))
+                #print("hull 8")
+                step_support_hull = self.convex_hull(np.concatenate((step_foundation,step_old_hull)))
+                support_hull.append(step_support_hull)
 
         #plt.figure()
         #plt.scatter(foundation[:,0],foundation[:,1],c='red')
@@ -615,6 +639,8 @@ class ObjectGenerator():
                                       size,self.wulff_db[element]["crystal"], 
                                       rounding=rounding, 
                                       latticeconstant=self.wulff_db[element]["lc"])
+        assert len(atoms) > 0
+        assert atoms.positions.shape[1] == 3
         points = atoms.positions-np.mean(atoms.positions,axis=0)
         if support_facet == "111":
             points = self.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
@@ -626,10 +652,16 @@ class ObjectGenerator():
             points = self.rotate_points_around_axis(points, [1,0,0], random.uniform(0,2*np.pi))
             points = self.rotate_points_around_axis(points, [0,1,0], random.uniform(0,2*np.pi))
             points = self.rotate_points_around_axis(points, [0,0,1], random.uniform(0,2*np.pi))
+        #make sure there are still the same number of points in particle as in atoms and that all of them have float x y z and a str label
         particle = pd.DataFrame(points, columns=['x', 'y', 'z'])
         particle['label'] = 'Pt'
+        assert len(particle) == len(atoms)  # Same number of points as in atoms
+        assert all(particle.dtypes[:3] == float)  # x, y, z columns are floats
+        assert particle['label'].dtype == object  # label column is of string type
 
         # Set z to 0 if close to 0, and remove points with z < 0
+        # make sure there are positive z values
+        assert any(particle['z'] > 0)
         epsilon = 0.0001
         particle.loc[abs(particle['z']) < epsilon, 'z'] = 0
         particle = particle[particle['z'] >= 0]
@@ -652,25 +684,50 @@ class ObjectGenerator():
         return hull
     
     def expand_hull(self, hull, val):
+        #print(f"Initial hull: {hull}")
+        #print(f"Expansion value: {val}")
+
         new_hull = []
         for hull_section in hull:
+            #print(f"Processing hull section: {hull_section}")
+
             zs, levels = self.split_hull_by_z(hull_section)
+            #print(f"Zs: {zs}, Levels: {levels}")
+
             new_hull_section = []
             for level in levels:
                 center_of_level = np.mean(level, axis=0)
-                #print("level",level)
-                #print("center_of_level",center_of_level)
+                #print("Level:", level)
+                #print("Center of level:", center_of_level)
+
                 new_level = []
                 for point in level:
-                    # Create expansion vector
                     expansion_vector = point - center_of_level
-                    expansion_vector /= np.linalg.norm(expansion_vector[:2])  # Normalize only x and y
+                    norm = np.linalg.norm(expansion_vector[:2])
+
+                    # Check for division by zero
+                    if norm == 0:
+                        new_level.append(point)
+                        #print("Warning: Norm is zero, skipping point")
+                        continue
+
+                    expansion_vector /= norm  # Normalize only x and y
                     expansion_vector[2] = 0  # Keep z-coordinate unchanged
+
                     new_point = point + expansion_vector * val
                     new_level.append(new_point)
-                new_hull_section.append(new_level)
-            new_hull.append(self.convex_hull(np.concatenate(new_hull_section)))
 
+                    #print(f"Point: {point}, New point: {new_point}")
+
+                new_hull_section.append(new_level)
+
+            combined_section = np.concatenate(new_hull_section)
+            #print(f"Combined new hull section: {combined_section}")
+            #print(f"Combined new hull section: {combined_section}")
+            new_hull.append(self.convex_hull(combined_section))
+            #print(f"New hull section after convex hull: {new_hull[-1]}")
+
+        #print(f"Final new hull: {new_hull}")
         return new_hull
 
     def set_interface_spacing(self, structure_df, support_hull, interface_spacing):
@@ -784,6 +841,7 @@ class ObjectGenerator():
 
             if dict_of_parameters['add_step']:
                 step_height = dict_of_parameters["step_height"]
+                #print("len particle",len(particle_hull),"len support", len(support_hull),"step height",step_height)
                 particle_hull, support_hull = self.add_step(particle_hull, support_hull, height=step_height)
             
             Pt_bulk = self.Pt_lattice(dict_of_parameters["Pt_bulk_depth"],dict_of_parameters["Pt_bulk_width"],dict_of_parameters["Pt_bulk_height"],dict_of_parameters["particle_surface_facet"],dict_of_parameters["particle_rotation"])
@@ -812,12 +870,15 @@ class ObjectGenerator():
             wulff_structure = self.generate_wulff_particle(size, element, rounding=rounding, support_facet=dict_of_parameters["particle_surface_facet"])
             points = wulff_structure[['x','y','z']].values
             if dict_of_parameters["particle_rotation"] != 0:
-                print(points)
+                #print(points)
                 points = self.rotate_points_around_axis(points, [0,0,1], dict_of_parameters["particle_rotation"])
                 wulff_structure[['x','y','z']] = points
-                print(points)
+                #print(points)
+            #print(len(points))
+            #print(np.unique(points[:,2]))
             particle_hull  = self.hull_from_points(points)
-            particle_hull = self.expand_hull(particle_hull,0.000000001)
+            #print(len(particle_hull))
+            particle_hull = self.expand_hull(particle_hull,0.001)
             
             particle_interface_points = self.get_interface_points(particle_hull)
             support_layers = dict_of_parameters["support_layers"]
@@ -871,6 +932,7 @@ class ObjectGenerator():
 
             if dict_of_parameters['add_step']:
                 step_height = dict_of_parameters["step_height"]
+                #print("len particle",len(particle_hull),"len support", len(support_hull),"step height",step_height)
                 particle_hull, support_hull = self.add_step(particle_hull, support_hull, height=step_height)
 
             filtered_Pt = self.filter_atoms_by_hull(cluster_structure,particle_hull)
@@ -891,13 +953,13 @@ class ObjectGenerator():
 #test_struct.label = test_struct.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
 #ob_gen.mayavi_atomic_structure(test_struct)
 # %%
-ob_gen = ObjectGenerator()
-start_time = time.time()
-test_wulff = ob_gen.generate_atomic_structure("wulff",dict_of_parameters={"wulff_size":92,"wulff_element":"Pt","wulff_rounding":"above","support_layers":8,"support_depth":50,"support_width":50,"CeO2_bulk_depth":20,"CeO2_bulk_width":20,"CeO2_bulk_height":20,"add_step":True,"step_height":2,"surface_facet":"100","particle_surface_facet":"100","particle_rotation":0})
-end_time = time.time()
-print("time:",end_time-start_time)
-test_wulff.label = test_wulff.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
-ob_gen.mayavi_atomic_structure(test_wulff)
+#ob_gen = ObjectGenerator()
+#start_time = time.time()
+#test_wulff = ob_gen.generate_atomic_structure("wulff",dict_of_parameters={"wulff_size":92,"wulff_element":"Pt","wulff_rounding":"above","support_layers":8,"support_depth":50,"support_width":50,"CeO2_bulk_depth":20,"CeO2_bulk_width":20,"CeO2_bulk_height":20,"add_step":True,"step_height":2,"surface_facet":"100","particle_surface_facet":"100","particle_rotation":0})
+#end_time = time.time()
+#print("time:",end_time-start_time)
+#test_wulff.label = test_wulff.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
+#ob_gen.mayavi_atomic_structure(test_wulff)
 # %%
 #ob_gen = ObjectGenerator()
 #start_time = time.time()
