@@ -50,7 +50,7 @@ class ObjectGenerator():
 
         layer_points = []
         for layer in range(particle_layers):
-            print(layer)
+            #print(layer)
             points = []
             angles = []
             radius = interface_radii[layer]
@@ -67,8 +67,8 @@ class ObjectGenerator():
             layer_points.append(points)
         hull_sections = []
         for i in range(particle_layers-1):
-            print(layer_points)
-            print(i)
+            #print(layer_points)
+            #print(i)
             points = layer_points[i+1]+layer_points[i]
             hull_sections.append(self.convex_hull(points))
         return hull_sections
@@ -231,10 +231,10 @@ class ObjectGenerator():
         else :
             particle_map = np.zeros((width,depth))
         
-        plt.figure()
-        plt.imshow(particle_map, cmap='gray')
-        print("particle_map")
-        plt.show()
+        #plt.figure()
+        #plt.imshow(particle_map, cmap='gray')
+        #print("particle_map")
+        #plt.show()
 
         surface = self.expand_region_with_perlin(particle_map)
 
@@ -401,7 +401,7 @@ class ObjectGenerator():
         
         atoms_within_bbox = atoms[within_bbox]
         
-        print("in 2", len(atoms_within_bbox),atoms_within_bbox.x)
+        #print("in 2", len(atoms_within_bbox),atoms_within_bbox.x)
         
         within_hull = atoms_within_bbox.apply(
             lambda row: self.point_in_convex_hull(np.array(row[['x', 'y', 'z']]), hull),
@@ -571,7 +571,7 @@ class ObjectGenerator():
         step_foundation = np.concatenate((filtered_out_points,intersection_points))
         
         old_hull_points_max_z = old_hull.points[old_hull.points[:,2]==max_z]
-        print("old_hull_points and max_z",old_hull_points_max_z,max_z)
+        #print("old_hull_points and max_z",old_hull_points_max_z,max_z)
         intersection_points = self.get_intersection_points(self.convex_hull(np.array(old_hull_points_max_z)[:,:2]), line)
         if intersection_points == []:
             #step_foundation but with z = max_z
@@ -594,20 +594,21 @@ class ObjectGenerator():
             step_support_hull = self.convex_hull(np.concatenate((step_foundation,step_old_hull)))
             support_hull.append(step_support_hull)
 
-        plt.figure()
-        plt.scatter(foundation[:,0],foundation[:,1],c='red')
-        plt.scatter(particle_hull[0].points[:,0],particle_hull[0].points[:,1],c='blue')
-        plt.scatter(filter_foundation[:,0],filter_foundation[:,1],c='green')
-        plt.scatter(interface_center[0],interface_center[1])
-        plt.scatter(filtered_out_points[:,0],filtered_out_points[:,1],c='orange')
+        #plt.figure()
+        #plt.scatter(foundation[:,0],foundation[:,1],c='red')
+        #plt.scatter(particle_hull[0].points[:,0],particle_hull[0].points[:,1],c='blue')
+        #plt.scatter(filter_foundation[:,0],filter_foundation[:,1],c='green')
+        #plt.scatter(interface_center[0],interface_center[1])
+        #plt.scatter(filtered_out_points[:,0],filtered_out_points[:,1],c='orange')
         #plt.scatter(step_old_hull[:,0],step_old_hull[:,1])
-        plt.show()
+        #plt.show()
 
 
         #find the points that were filtered out
         return particle_hull, support_hull 
     
     def generate_wulff_particle(self, size, element,support_facet="111", rounding="above"):
+        #print(support_facet)
         atoms = wulff_construction(element, 
                                       self.wulff_db[element]["surfaces"], 
                                       self.wulff_db[element]["esurf"], 
@@ -642,10 +643,10 @@ class ObjectGenerator():
         "Assuming there are distinct levels of z values"
         z_values = np.unique(points[:,2])
         hull = []
-        print(z_values)
+        #print(z_values)
         for i,z in enumerate(z_values):
             if i < len(z_values)-1:
-                print(z,z_values[i+1])
+                #print(z,z_values[i+1])
                 hull_section_points = np.concatenate((points[points[:,2]==z],points[points[:,2]==z_values[i+1]]))
                 hull.append(self.convex_hull(hull_section_points))
         return hull
@@ -657,8 +658,8 @@ class ObjectGenerator():
             new_hull_section = []
             for level in levels:
                 center_of_level = np.mean(level, axis=0)
-                print("level",level)
-                print("center_of_level",center_of_level)
+                #print("level",level)
+                #print("center_of_level",center_of_level)
                 new_level = []
                 for point in level:
                     # Create expansion vector
@@ -811,8 +812,10 @@ class ObjectGenerator():
             wulff_structure = self.generate_wulff_particle(size, element, rounding=rounding, support_facet=dict_of_parameters["particle_surface_facet"])
             points = wulff_structure[['x','y','z']].values
             if dict_of_parameters["particle_rotation"] != 0:
+                print(points)
                 points = self.rotate_points_around_axis(points, [0,0,1], dict_of_parameters["particle_rotation"])
                 wulff_structure[['x','y','z']] = points
+                print(points)
             particle_hull  = self.hull_from_points(points)
             particle_hull = self.expand_hull(particle_hull,0.000000001)
             
@@ -833,13 +836,13 @@ class ObjectGenerator():
                 step_height = dict_of_parameters["step_height"]
                 particle_hull, support_hull = self.add_step(particle_hull, support_hull, height=step_height)
             
-            filtered_Pt = ob_gen.filter_atoms_by_hull(wulff_structure,particle_hull) 
-            filtered_ceo2 = ob_gen.filter_atoms_by_hull(CeO2_bulk,support_hull)
+            filtered_Pt = self.filter_atoms_by_hull(wulff_structure,particle_hull) 
+            filtered_ceo2 = self.filter_atoms_by_hull(CeO2_bulk,support_hull)
 
             filtered_atoms = pd.concat([filtered_Pt,filtered_ceo2])
-            filtered_atoms = ob_gen.set_interface_spacing(filtered_atoms,support_hull, 2.2)
-            relaxed_struct = ob_gen.relax_structure(filtered_atoms)
-            relaxed_struct = ob_gen.remove_overlapping_atoms(relaxed_struct)
+            filtered_atoms = self.set_interface_spacing(filtered_atoms,support_hull, 2.2)
+            relaxed_struct = self.relax_structure(filtered_atoms)
+            relaxed_struct = self.remove_overlapping_atoms(relaxed_struct)
             return relaxed_struct
 
         elif particle_type == "cluster":
@@ -870,37 +873,37 @@ class ObjectGenerator():
                 step_height = dict_of_parameters["step_height"]
                 particle_hull, support_hull = self.add_step(particle_hull, support_hull, height=step_height)
 
-            filtered_Pt = ob_gen.filter_atoms_by_hull(cluster_structure,particle_hull)
-            filtered_ceo2 = ob_gen.filter_atoms_by_hull(CeO2_bulk,support_hull)
+            filtered_Pt = self.filter_atoms_by_hull(cluster_structure,particle_hull)
+            filtered_ceo2 = self.filter_atoms_by_hull(CeO2_bulk,support_hull)
 
             filtered_atoms = pd.concat([filtered_Pt,filtered_ceo2])
-            filtered_atoms = ob_gen.set_interface_spacing(filtered_atoms,support_hull, 2.2)
-            relaxed_struct = ob_gen.relax_structure(filtered_atoms)
-            relaxed_struct = ob_gen.remove_overlapping_atoms(relaxed_struct)
+            filtered_atoms = self.set_interface_spacing(filtered_atoms,support_hull, 2.2)
+            relaxed_struct = self.relax_structure(filtered_atoms)
+            relaxed_struct = self.remove_overlapping_atoms(relaxed_struct)
             return relaxed_struct
 
 # %%
-ob_gen = ObjectGenerator()
-start_time = time.time()
-test_struct = ob_gen.generate_atomic_structure("random",dict_of_parameters={"hull_layers":3,"interface_radiis":[10,11,9],"layer_sample_points":[6,6,6],"centers":[[0,0],[0,0],[0,0]],"support_layers":8,"support_depth":50,"support_width":50,"Pt_bulk_depth":10,"Pt_bulk_width":10,"Pt_bulk_height":10,"CeO2_bulk_depth":20,"CeO2_bulk_width":20,"CeO2_bulk_height":20,"add_step":False,"step_height":2,"surface_facet":"111","particle_surface_facet":"111", "particle_rotation":0})
-end_time = time.time()
-print("time:",end_time-start_time)
-test_struct.label = test_struct.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
-ob_gen.mayavi_atomic_structure(test_struct)
+#ob_gen = ObjectGenerator()
+#start_time = time.time()
+#test_struct = ob_gen.generate_atomic_structure("random",dict_of_parameters={"hull_layers":3,"interface_radiis":[10,11,9],"layer_sample_points":[6,6,6],"centers":[[0,0],[0,0],[0,0]],"support_layers":8,"support_depth":50,"support_width":50,"Pt_bulk_depth":10,"Pt_bulk_width":10,"Pt_bulk_height":10,"CeO2_bulk_depth":20,"CeO2_bulk_width":20,"CeO2_bulk_height":20,"add_step":False,"step_height":2,"surface_facet":"111","particle_surface_facet":"111", "particle_rotation":0})
+#end_time = time.time()
+#print("time:",end_time-start_time)
+#test_struct.label = test_struct.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
+#ob_gen.mayavi_atomic_structure(test_struct)
 # %%
 ob_gen = ObjectGenerator()
 start_time = time.time()
-test_wulff = ob_gen.generate_atomic_structure("wulff",dict_of_parameters={"wulff_size":200,"wulff_element":"Pt","wulff_rounding":"above","support_layers":8,"support_depth":50,"support_width":50,"CeO2_bulk_depth":20,"CeO2_bulk_width":20,"CeO2_bulk_height":20,"add_step":True,"step_height":2,"surface_facet":"100","particle_surface_facet":"111","particle_rotation":0})
+test_wulff = ob_gen.generate_atomic_structure("wulff",dict_of_parameters={"wulff_size":92,"wulff_element":"Pt","wulff_rounding":"above","support_layers":8,"support_depth":50,"support_width":50,"CeO2_bulk_depth":20,"CeO2_bulk_width":20,"CeO2_bulk_height":20,"add_step":True,"step_height":2,"surface_facet":"100","particle_surface_facet":"100","particle_rotation":0})
 end_time = time.time()
 print("time:",end_time-start_time)
 test_wulff.label = test_wulff.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
 ob_gen.mayavi_atomic_structure(test_wulff)
 # %%
-ob_gen = ObjectGenerator()
-start_time = time.time()
-test_cluster = ob_gen.generate_atomic_structure("cluster",dict_of_parameters={"cluster_surfaces":[(1, 0, 0), (1, 1, 1), (1, -1, 1)],"cluster_layers":[4,3,0],"cluster_element":"Pt","support_layers":8,"support_depth":50,"support_width":50,"CeO2_bulk_depth":20,"CeO2_bulk_width":20,"CeO2_bulk_height":20,"add_step":True,"step_height":2,"surface_facet":"100","particle_surface_facet":"111","particle_rotation":0})
-end_time = time.time()
-print("time:",end_time-start_time)
-test_cluster.label = test_cluster.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
-ob_gen.mayavi_atomic_structure(test_cluster)
+#ob_gen = ObjectGenerator()
+#start_time = time.time()
+#test_cluster = ob_gen.generate_atomic_structure("cluster",dict_of_parameters={"cluster_surfaces":[(1, 0, 0), (1, 1, 1), (1, -1, 1)],"cluster_layers":[4,3,0],"cluster_element":"Pt","support_layers":8,"support_depth":50,"support_width":50,"CeO2_bulk_depth":20,"CeO2_bulk_width":20,"CeO2_bulk_height":20,"add_step":True,"step_height":2,"surface_facet":"100","particle_surface_facet":"111","particle_rotation":0})
+#end_time = time.time()
+#print("time:",end_time-start_time)
+#test_cluster.label = test_cluster.label.replace({'Ce': 0, 'O': 1, 'Pt': 2})
+#ob_gen.mayavi_atomic_structure(test_cluster)
 # %%
