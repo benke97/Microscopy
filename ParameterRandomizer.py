@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import math
 class ParameterRandomizer():
     def __init__(self):
         pass
@@ -18,42 +19,56 @@ class ParameterRandomizer():
         interface_radiis = []
         layer_sample_points = []
         centers = []
-        wetting = random.choice(["acute","obtuse","90"])
+        wetting = random.choice(["acute","acute","obtuse","obtuse","90"])
+
         if wetting == "90":
             radius = random.randint(4,15)
             for i in range(hull_layers):
                 interface_radiis.append(radius)
         
         if wetting == "acute":
-            radius = random.randint(hull_layers+2,hull_layers+10)
-            for i in range(hull_layers):
-                if i == 0:
-                    interface_radiis.append(radius)
-                    continue
-                radius = random.randint(min(radius-1,hull_layers),radius)
-                interface_radiis.append(radius)
-        
+            if hull_layers <= 0:
+                raise ValueError("Invalid hull_layers value")
+            #print(hull_layers)
+            # Generate l-1 random numbers
+            random_numbers = [random.randint(4,15) for _ in range(hull_layers)]
+            # sort descending
+            random_numbers.sort(reverse=True)
+            #print(random_numbers)
+            interface_radiis = random_numbers
+                
         if wetting == "obtuse":
-            thickest_layer = random.randint(0, hull_layers - 1)
-            radius_thick = random.randint(hull_layers, hull_layers + 10)
-
-            # Layers below the thickest layer (increasing thickness)
-            for i in range(thickest_layer, 0, -1):
-                radius = random.randint(hull_layers, radius_thick - 1)
-                interface_radiis.insert(0, radius)
-
-            # Thickest layer
-            interface_radiis.append(radius_thick)
-
-            # Layers above the thickest layer (decreasing thickness)
-            for i in range(thickest_layer + 1, hull_layers):
-                radius = random.randint(hull_layers, radius_thick - 1)
-                interface_radiis.append(radius)
-
+            if hull_layers <= 0:
+                raise ValueError("Invalid hull_layers value")
+            #print(hull_layers)
+            # Generate l-1 random numbers
+            random_numbers = [random.randint(4,15) for _ in range(hull_layers)]
+            #print("random numbers",random_numbers)
+            # sort descending
+            random_numbers.sort(reverse=True)
+            #print("sorted",random_numbers)
+            if hull_layers <= 2:
+                random_numbers.sort()
+                interface_radiis = random_numbers
+            else:
+                if hull_layers ==3:
+                    max_position = 2
+                elif hull_layers ==4:
+                    max_position = random.choice([2,3])
+                else:
+                    max_position = random.randint(2,math.floor(hull_layers/2))
+                #print("max_position",max_position)
+                reversed_sublist = random_numbers[:max_position][::-1]
+                #print("reversed_sublist",reversed_sublist)
+                random_numbers[:max_position] = reversed_sublist
+                #print("random_numbers",random_numbers)
+                interface_radiis = random_numbers
+                
         
         for i in range(hull_layers):
             layer_sample_points.append(random.randint(4,10))
             centers.append([np.random.normal(0,0.5),np.random.normal(0,0.5)])
+
         
         add_step = random.choice([True,False])
         step_height = random.randint(1,hull_layers)
@@ -64,6 +79,10 @@ class ParameterRandomizer():
             particle_rotation = random.uniform(0,2*np.pi)
         else:
             particle_rotation = 0
+        #print("hull_layers",hull_layers)
+        #print("interface_radiis",len(interface_radiis))
+        #print("layer_sample_points",len(layer_sample_points))
+        #print("centers",len(centers))
 
         dict_of_parameters = {"hull_layers":hull_layers,
                               "interface_radiis":interface_radiis,
@@ -101,7 +120,7 @@ class ParameterRandomizer():
                               "surface_facet":surface_facet,
                               "particle_surface_facet":particle_surface_facet,
                               "particle_rotation":particle_rotation}
-        print(dict_of_parameters)
+        #print(dict_of_parameters)
         return dict_of_parameters
     
     def gen_params_cluster(self):
@@ -138,4 +157,3 @@ class ParameterRandomizer():
         else:
             raise ValueError("Unknown structure type")
         return dict_of_parameters
-    
