@@ -1,0 +1,463 @@
+'[Main Parameters]'
+Version 2019101801
+1
+10
+0
+4
+0
+0
+-1
+0
+5
+0
+2
+2
+0
+1
+1
+1
+1
+C:\Users\EMCwo\Documents\code\GAN\output\
+1100_discretization
+9
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+5
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+1
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[StructureView Parameters]'
+Version 2015022301
+16777215
+0
+8421504
+0
+128
+1
+2
+0.02
+0.08
+0
+'[Microscope Parameters]'
+Version 2019091601
+18.5
+0.05
+0
+0
+0
+30
+3
+2
+300
+0.00870549
+0.05
+7
+0
+0
+0
+0
+0
+0
+1
+1
+24
+0 0 0
+1 0 0
+2 0 0
+3 0 0
+4 0 0
+5 0 0
+6 0 0
+7 0 0
+8 0 0
+9 0 0
+10 0 0
+11 0 0
+12 0 0
+13 0 0
+14 0 0
+15 0 0
+16 0 0
+17 0 0
+18 0 0
+19 0 0
+20 0 0
+21 0 0
+22 0 0
+23 0 0
+''
+3
+'[Detector Parameters]'
+Version 2021061601
+HAADF
+66
+200
+0
+0
+0
+0
+
+0
+'[Detector Parameters]'
+Version 2021061601
+ABF
+10
+24
+0
+0
+0
+0
+
+0
+'[Detector Parameters]'
+Version 2021061601
+BF
+0
+10
+0
+0
+0
+0
+
+0
+'[Multislice Parameters]'
+Version 2022041101
+0.0041704
+0.0041704
+0
+0
+1.5
+1.5
+2.72
+2.72
+0
+0
+0
+128
+128
+0
+0
+0
+1
+0
+1
+0
+0.1
+0
+0
+0
+0
+0
+0
+0
+0
+5.72179
+5.72179
+5.72179
+1
+1
+1
+1
+16
+24
+94
+10
+1
+0
+1372
+1372
+C:\Users\EMCwo\Documents\code\GAN\cifs\0.cif
+0
+0
+0
+0
+0
+0
+128
+128
+
+
+4
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.1416
+1
+0
+128
+128
+6
+1.0009
+1.0016
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0
+'[ProbeView Parameters]'
+Version 2019030601
+0
+0
+0
+0
+3.14159
+1
+0
+256
+256
+0
+1
+1
+0
+0

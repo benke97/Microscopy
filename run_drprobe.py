@@ -7,7 +7,7 @@ import pandas as pd
 
 class DrProbeRunner():
     def __init__(self):
-        self.dataset=10
+        self.dataset=50
         self.confidence_level = 0.9
 
     def get_file(self,i):
@@ -96,9 +96,9 @@ class DrProbeRunner():
         pyautogui.press('right',presses=50)
         pyautogui.press('backspace',presses=50)
 
-    def wait_for_button(self,image,number_of_clicks=1):
+    def wait_for_button(self,image,number_of_clicks=1,sleep_time=2):
         while(1):
-            time.sleep(2)
+            time.sleep(sleep_time)
             try:
                 button_location = pyautogui.locateOnScreen(image, confidence=self.confidence_level)
                 if button_location is not None:
@@ -112,7 +112,7 @@ class DrProbeRunner():
             except pyautogui.ImageNotFoundException:
                 print(image+" has not been found")
 
-    def sample_setup(self,file,sampling):
+    def sample_setup(self,file,sampling,num_slices):
         # Attempt to locate the button
         self.wait_for_button('ims/sample_setup.png')
         self.click('ims/sample_setup.png',self.confidence_level)
@@ -120,7 +120,6 @@ class DrProbeRunner():
         time.sleep(2)
 
         self.wait_for_button('ims/select_file.png')
-        self.click('ims/select_file.png',self.confidence_level)
         self.default_mouse()
         time.sleep(2)
 
@@ -138,6 +137,10 @@ class DrProbeRunner():
         suggest_location = pyautogui.locateOnScreen("ims/suggest.png", confidence=0.95)
         self.wait_for_button('ims/variants_per_slice.png')
         variants_per_slice_location = pyautogui.locateOnScreen("ims/variants_per_slice.png", confidence=0.95)
+        self.wait_for_button('ims/slices_along_z.png')
+        slices_along_z_location = pyautogui.locateOnScreen("ims/slices_along_z.png", confidence=0.95)
+        self.wait_for_button('ims/atomic_configurations.png',number_of_clicks=0)
+        atomic_configurations_location = pyautogui.locateOnScreen("ims/atomic_configurations.png", confidence=0.95)
 
         self.click_coordinate(discretization_location[0]+discretization_location[2]/2,horizontally_location[1]+horizontally_location[3]/2)
         self.clear_box()
@@ -148,6 +151,12 @@ class DrProbeRunner():
         self.click_coordinate(suggest_location[0]+suggest_location[2]/2,vertically_location[1]+vertically_location[3]/2)
         self.clear_box()
         pyautogui.write(sampling)
+        self.default_mouse()
+        time.sleep(2)
+
+        self.click_coordinate(atomic_configurations_location[0]+atomic_configurations_location[2]/3,slices_along_z_location[1]+slices_along_z_location[3]/2)
+        self.clear_box()
+        pyautogui.write(str(num_slices))
         self.default_mouse()
         time.sleep(2)
 
@@ -206,7 +215,7 @@ class DrProbeRunner():
         self.default_mouse()
         time.sleep(2)
         
-        self.wait_for_button('ims/calculation_finished.png')
+        self.wait_for_button('ims/calculation_finished.png',sleep_time=20)
         print("calculation finished")
         time.sleep(2)
 
@@ -251,45 +260,6 @@ class DrProbeRunner():
             time.sleep(2)
 
         self.wait_for_button('ims/exit.png')
-        self.click('ims/exit.png',self.confidence_level)
-        self.default_mouse()
-        time.sleep(2)
-
-        self.wait_for_button('ims/apply_source_profile.png')
-        self.click('ims/apply_source_profile.png',self.confidence_level)
-        self.default_mouse()
-        time.sleep(2)
-
-        self.wait_for_button('ims/save_results_to_file.png')
-        self.click('ims/save_results_to_file.png',self.confidence_level)
-        self.default_mouse()
-        time.sleep(2)
-
-        pyautogui.moveTo(curr_dect_location[0]+curr_dect_location[2]/2,file_title_location[1]+file_title_location[3]/2)
-        pyautogui.click()
-        self.clear_box()
-        pyautogui.write("source_"+data_name)
-        time.sleep(2)
-
-
-        for j in range(2):
-            pyautogui.moveTo(curr_dect_location[0]+curr_dect_location[2]/2,format_location[1]+format_location[3]/2)
-            pyautogui.click()
-            self.reset_dropdown()
-            if j == 0:
-                pyautogui.press('down',presses=2) #MRC
-            else:
-                pyautogui.press('down',presses=5) #TIF
-            pyautogui.press('enter')
-            time.sleep(2)
-
-            self.wait_for_button('ims/write_files.png')
-            self.click('ims/write_files.png',self.confidence_level)
-            self.default_mouse()
-            time.sleep(2)
-
-        self.wait_for_button('ims/exit.png')
-        self.click('ims/exit.png',self.confidence_level)
         self.default_mouse()
         time.sleep(2)
 
@@ -312,11 +282,14 @@ class DrProbeRunner():
             pixel_size = dataframe["pixel_size"][0]
             size_x = np.round(pixel_size*128,2)
             size_y = np.round(pixel_size*128,2)
-            k_max = 80
+            k_max = 70
+            slice_thickness = 0.1 #nm
+            num_slices = np.floor((size_x+offset_x*2)/slice_thickness).astype(int)
+            print("num_slices",num_slices)
             print("cell_side_length",size_x+offset_x*2)
             sampling = ((size_x+offset_x*2)*3*k_max).astype(int)
             print("sampling",sampling) 
-            self.sample_setup(f"{i}.cif",f"{sampling}")
+            self.sample_setup(f"{i}.cif",f"{sampling}",num_slices)
             self.calculation_setup(f"{offset_x}",f"{offset_y}",f"{size_x}",f"{size_y}")
             self.run_calculation(i)
             self.save_data(f"{i}")

@@ -175,11 +175,11 @@ class ObjectGenerator():
         new_map = dilate(new_map, structure=structuring_element)    
         return new_map
 
-    def generate_particle_interface_map(self, particle_interface_points, width, depth, structuring_element=np.array([[0,1,1,1,0],
-                                                                                                                    [1,1,1,1,1],
-                                                                                                                    [1,1,1,1,1],
-                                                                                                                    [1,1,1,1,1],
-                                                                                                                    [0,1,1,1,0]])):
+    def generate_particle_interface_map(self, particle_interface_points, width, depth, dilat_control=None, structuring_element=np.array([[0,1,1,1,0],
+                                                                                                                                        [1,1,1,1,1],
+                                                                                                                                        [1,1,1,1,1],
+                                                                                                                                        [1,1,1,1,1],
+                                                                                                                                        [0,1,1,1,0]])):
         particle_interface_points += [[width/2,depth/2]]
         hull = self.convex_hull(particle_interface_points)
         delaunay_hull = Delaunay(particle_interface_points[hull.vertices])        
@@ -189,6 +189,9 @@ class ObjectGenerator():
                 if delaunay_hull.find_simplex([i, j]) >= 0:
                     particle_map[i, j] = 1
         number_of_dilations = random.randint(1,3)
+        if dilat_control is not None:
+            number_of_dilations = dilat_control
+        #print("number_of_dilations",number_of_dilations)
         for i in range(number_of_dilations):
             particle_map = dilate(particle_map, structure=structuring_element)
         return particle_map
@@ -219,15 +222,15 @@ class ObjectGenerator():
         points = np.column_stack((points,np.ones(points.shape[0])*z))
         return points
 
-    def support_hull(self, support_layers, depth, width,particle_interface_points=None, structuring_element=None):
+    def support_hull(self, support_layers, depth, width,particle_interface_points=None, structuring_element=None, dilat_control=None):
         
         #extract x and y coordinates from particle_interface_points
         if particle_interface_points is not None:
             xy_interface_points = particle_interface_points[:,0:2]
             if structuring_element is None:
-                particle_map = self.generate_particle_interface_map(xy_interface_points, width, depth)
+                particle_map = self.generate_particle_interface_map(xy_interface_points, width, depth, dilat_control)
             else:
-                particle_map = self.generate_particle_interface_map(xy_interface_points, width, depth, structuring_element)
+                particle_map = self.generate_particle_interface_map(xy_interface_points, width, depth, dilat_control, structuring_element)
         else :
             particle_map = np.zeros((width,depth))
         
@@ -369,7 +372,12 @@ class ObjectGenerator():
             points = self.rotate_points_around_axis(points, [-1,-1,0], 0.9553166181245093)
             points = self.rotate_points_around_axis(points, [0,0,1], 0.9553166181245093)
             points = self.rotate_points_around_axis(points, [0,0,1], 50*np.pi/180)
+            zone_axis = random.choice([0,np.pi/3,np.pi/6])
+            points = self.rotate_points_around_axis(points, [0,0,1], zone_axis)
         if surface_facet == '100':
+            zone_axis = random.choice([0,np.pi/4])
+            points = self.rotate_points_around_axis(points, [0,0,1], zone_axis)
+
             pass
         
         if surface_facet == 'random':
@@ -824,7 +832,7 @@ class ObjectGenerator():
             particle_interface_points = points[mask]
             return particle_interface_points
 
-    def generate_atomic_structure(self, particle_type="random", dict_of_parameters=None):
+    def generate_atomic_structure(self, particle_type="random", dict_of_parameters=None, dilat_control=None):
         if particle_type == "random":
             
             hull_layers = dict_of_parameters["hull_layers"]
@@ -837,7 +845,7 @@ class ObjectGenerator():
             support_depth = dict_of_parameters["support_depth"]
             support_width = dict_of_parameters["support_width"]
             particle_interface_points = self.get_interface_points(particle_hull)
-            support_hull = self.support_hull(support_layers,support_depth,support_width,particle_interface_points)
+            support_hull = self.support_hull(support_layers,support_depth,support_width,particle_interface_points, dilat_control=dilat_control)
 
             if dict_of_parameters['add_step']:
                 step_height = dict_of_parameters["step_height"]
@@ -884,7 +892,8 @@ class ObjectGenerator():
             support_layers = dict_of_parameters["support_layers"]
             support_depth = dict_of_parameters["support_depth"]
             support_width = dict_of_parameters["support_width"]
-            support_hull = self.support_hull(support_layers,support_depth,support_width,particle_interface_points)
+            #print("dilate control, gen atom struct",dilat_control)
+            support_hull = self.support_hull(support_layers,support_depth,support_width,particle_interface_points,dilat_control=dilat_control)
             CeO2_bulk = self.Ceria_lattice(dict_of_parameters["CeO2_bulk_depth"],dict_of_parameters["CeO2_bulk_width"],dict_of_parameters["CeO2_bulk_height"],dict_of_parameters["surface_facet"])
             #RANDOMLY DISPLACE BULK ATOMS BEFORE FILTERING within one unit cell
             CeO2_points = CeO2_bulk[['x','y','z']].values
@@ -922,7 +931,7 @@ class ObjectGenerator():
             support_layers = dict_of_parameters["support_layers"]
             support_depth = dict_of_parameters["support_depth"]
             support_width = dict_of_parameters["support_width"]
-            support_hull = self.support_hull(support_layers,support_depth,support_width,particle_interface_points)
+            support_hull = self.support_hull(support_layers,support_depth,support_width,particle_interface_points, dilat_control=dilat_control)
             CeO2_bulk = self.Ceria_lattice(dict_of_parameters["CeO2_bulk_depth"],dict_of_parameters["CeO2_bulk_width"],dict_of_parameters["CeO2_bulk_height"],dict_of_parameters["surface_facet"])
             #RANDOMLY DISPLACE BULK ATOMS BEFORE FILTERING
             CeO2_points = CeO2_bulk[['x','y','z']].values
