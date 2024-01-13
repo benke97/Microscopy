@@ -12,8 +12,10 @@ import random
 from skimage import io
 from collections import Counter
 import tifffile as tiff
+import time
 from torchvision import transforms
 from torchvision.transforms import functional as TF
+from tqdm import tqdm
 #%%
 def is_valid_file(file_name):
     """Check if the file name matches the pattern i_HAADF.tif where i is in the specified range."""
@@ -137,7 +139,23 @@ class RandomRotation90:
     def __call__(self, x):
         angle = random.choice(self.angles)
         return TF.rotate(x, angle)
-    
+
+class MinMaxNormalize(object):
+    def __init__(self):
+        # Additional initialization can be added here if necessary
+        pass
+
+    def __call__(self, img_tensor):
+        # img_tensor is expected to be a PyTorch tensor
+
+        # Normalize: set min to 0
+        img_tensor = img_tensor - img_tensor.min()
+
+        # Scale by 2^32
+        img_tensor = img_tensor / (2**32)
+
+        return img_tensor
+
 class SimulatedDataset(Dataset):
     def __init__(self, data_dict, transform=None):
         self.data_dict = data_dict
@@ -184,14 +202,15 @@ transform = transforms.Compose([
     RandomRotation90(),
     transforms.RandomHorizontalFlip(),
     transforms.RandomVerticalFlip(),
-    transforms.ToTensor()
+    transforms.ToTensor(),
+    MinMaxNormalize()
 ])
 
 simulated_dataset = SimulatedDataset(data_dict, transform=transform)
-simulated_loader = DataLoader(simulated_dataset, batch_size=32, shuffle=True)
+simulated_loader = DataLoader(simulated_dataset, batch_size=16, shuffle=True)
 
 experimental_dataset = ExperimentalDataset(experimental_data_dict, transform=transform)
-experimental_loader = DataLoader(experimental_dataset, batch_size=32, shuffle=True)
+experimental_loader = DataLoader(experimental_dataset, batch_size=16, shuffle=True)
 # %%
 # Function to visualize a batch of images
 import torchvision 
@@ -363,65 +382,163 @@ loader_B = simulated_loader
 lambda_cycle = 10
 lambda_id = 0.5
 
+losses_G = []
+losses_D_A = []
+losses_D_B = []
 
 num_epochs = 300
 for epoch in range(num_epochs):
+    print(f"Epoch {epoch+1}/{num_epochs}")
+    
+    epoch_loss_G = 0
+    epoch_loss_D_A = 0
+    epoch_loss_D_B = 0
+
+    loader_A = tqdm(experimental_loader, total=len(experimental_loader))
+    loader_B = tqdm(simulated_loader, total=len(simulated_loader))
     for real_A, real_B in zip(loader_A, loader_B):
+
         real_A = real_A.to(device)
         real_B = real_B.to(device)
         # real_A and real_B are batches from the two domains
-        print(1)
+
         # Generators G_AB and G_BA
         optimizer_G.zero_grad()
-        print(2)
+
         # Identity loss
         loss_id_A = criterion_identity(G_BA(real_A), real_A)
-        print(3)
+
         loss_id_B = criterion_identity(G_AB(real_B), real_B)
-        print(3)
+
+
+        
         # GAN loss
+
         fake_B = G_AB(real_A)
-        print("fake_B shape:", fake_B.shape)
-        print("torch.ones_like(fake_B).shape:", torch.ones_like(fake_B).shape)
+
+
         discriminator_output = D_B(fake_B)
-        print("Discriminator output shape:", discriminator_output.shape)
+
+        
         target_tensor = torch.ones_like(discriminator_output).to(device)
-        print("Target tensor shape:", target_tensor.shape)
-        fake_B_output = D_B(fake_B)
-        target_tensor = torch.ones_like(fake_B_output).to(device)
-        loss_GAN_AB = criterion_GAN(fake_B_output, target_tensor)
-        print(4)
+
+        
+        loss_GAN_AB = criterion_GAN(discriminator_output, target_tensor)
+
         fake_A = G_BA(real_B)
-        print(5)
-        fake_A_output = D_A(fake_A)
-        target_tensor = torch.ones_like(fake_A_output).to(device)
-        loss_GAN_BA = criterion_GAN(fake_A_output, target_tensor)
-        print(4)
+
+        
+        discriminator_output = D_A(fake_A)
+
+        
+        target_tensor = torch.ones_like(discriminator_output).to(device)
+
+
+        loss_GAN_BA = criterion_GAN(discriminator_output, target_tensor)
+
+
         # Cycle loss
+
+
+
         recovered_A = G_BA(fake_B)
+
+
+
         loss_cycle_A = criterion_cycle(recovered_A, real_A)
+
+
         recovered_B = G_AB(fake_A)
+
         loss_cycle_B = criterion_cycle(recovered_B, real_B)
 
+
+        
         # Total loss
+
+
         loss_G = loss_GAN_AB + loss_GAN_BA + lambda_cycle * (loss_cycle_A + loss_cycle_B) + lambda_id * (loss_id_A + loss_id_B)
+
         loss_G.backward()
+
+
         optimizer_G.step()
 
         # Discriminator A
         optimizer_D_A.zero_grad()
-        loss_real = criterion_GAN(D_A(real_A), torch.ones_like(real_A))
-        loss_fake = criterion_GAN(D_A(fake_A.detach()), torch.zeros_like(fake_A))
+        real_A_output = D_A(real_A)
+        target_real = torch.ones_like(real_A_output).to(device)
+        loss_real = criterion_GAN(real_A_output, target_real)
+
+        fake_A_output = D_A(fake_A.detach())
+        target_fake = torch.zeros_like(fake_A_output).to(device)
+        loss_fake = criterion_GAN(fake_A_output, target_fake)
+
         loss_D_A = (loss_real + loss_fake) / 2
         loss_D_A.backward()
         optimizer_D_A.step()
-
         # Discriminator B
         optimizer_D_B.zero_grad()
-        loss_real = criterion_GAN(D_B(real_B), torch.ones_like(real_B))
-        loss_fake = criterion_GAN(D_B(fake_B.detach()), torch.zeros_like(fake_B))
-        loss_D_B = (loss_real + loss_fake) / 2
+
+        # Loss for real images
+        real_B_output = D_B(real_B)
+        target_real_B = torch.ones_like(real_B_output).to(device)  # Ensure the target tensor matches the output shape
+        loss_real_B = criterion_GAN(real_B_output, target_real_B)
+
+        # Loss for fake images
+        fake_B_output = D_B(fake_B.detach())  # Detach fake data to prevent gradients from flowing back to the generator
+        target_fake_B = torch.zeros_like(fake_B_output).to(device)  # Match the shape with the discriminator output
+        loss_fake_B = criterion_GAN(fake_B_output, target_fake_B)
+
+        # Combine the losses
+        loss_D_B = (loss_real_B + loss_fake_B) / 2
         loss_D_B.backward()
         optimizer_D_B.step()
+
+        epoch_loss_G += loss_G.item()
+        epoch_loss_D_A += loss_D_A.item()
+        epoch_loss_D_B += loss_D_B.item()
+
+    # Average the losses over the epoch
+    avg_loss_G = epoch_loss_G / len(loader_A)
+    avg_loss_D_A = epoch_loss_D_A / len(loader_A)
+    avg_loss_D_B = epoch_loss_D_B / len(loader_A)
+
+    # Store average losses for visualization later
+    losses_G.append(avg_loss_G)
+    losses_D_A.append(avg_loss_D_A)
+    losses_D_B.append(avg_loss_D_B)
+
+    # Print average losses
+    print(f"Generator Loss: {avg_loss_G:.4f}, Discriminator A Loss: {avg_loss_D_A:.4f}, Discriminator B Loss: {avg_loss_D_B:.4f}")
+
+    # Visualizing Generated Images after each epoch
+    with torch.no_grad():
+        # Take a batch of images from loader_A or loader_B
+        sample_A = next(iter(loader_A))[0].to(device)
+        sample_B = next(iter(loader_B))[0].to(device)
+
+        # Generate images
+        fake_B = G_AB(sample_A)
+        fake_A = G_BA(sample_B)
+
+        # Move images to CPU for plotting
+        sample_A, sample_B, fake_A, fake_B = sample_A.cpu(), sample_B.cpu(), fake_A.cpu(), fake_B.cpu()
+
+        # Plotting
+        plt.figure(figsize=(10, 4))
+        plt.subplot(1, 4, 1)
+        plt.title("Real A")
+        plt.imshow(sample_A[0].permute(1, 2, 0))  # Assuming images are in CHW format
+        plt.subplot(1, 4, 2)
+        plt.title("Fake B")
+        plt.imshow(fake_B[0].permute(1, 2, 0))
+        plt.subplot(1, 4, 3)
+        plt.title("Real B")
+        plt.imshow(sample_B[0].permute(1, 2, 0))
+        plt.subplot(1, 4, 4)
+        plt.title("Fake A")
+        plt.imshow(fake_A[0].permute(1, 2, 0))
+        plt.show()
 # %%
 # %%
