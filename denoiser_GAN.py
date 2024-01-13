@@ -149,7 +149,7 @@ class MinMaxNormalize(object):
         # img_tensor is expected to be a PyTorch tensor
 
         # Normalize: set min to 0
-        img_tensor = (img_tensor - img_tensor.min() / (img_tensor.max() - img_tensor.min()))
+        img_tensor = ((img_tensor - img_tensor.min()) / (img_tensor.max() - img_tensor.min()))
 
         return img_tensor
 
@@ -204,10 +204,10 @@ transform = transforms.Compose([
 ])
 
 simulated_dataset = SimulatedDataset(data_dict, transform=transform)
-simulated_loader = DataLoader(simulated_dataset, batch_size=8, shuffle=True)
+simulated_loader = DataLoader(simulated_dataset, batch_size=4, shuffle=True)
 
 experimental_dataset = ExperimentalDataset(experimental_data_dict, transform=transform)
-experimental_loader = DataLoader(experimental_dataset, batch_size=8, shuffle=True)
+experimental_loader = DataLoader(experimental_dataset, batch_size=4, shuffle=True)
 
 # %%
 import torch
