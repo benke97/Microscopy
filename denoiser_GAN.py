@@ -207,10 +207,10 @@ transform = transforms.Compose([
 ])
 
 simulated_dataset = SimulatedDataset(data_dict, transform=transform)
-simulated_loader = DataLoader(simulated_dataset, batch_size=16, shuffle=True)
+simulated_loader = DataLoader(simulated_dataset, batch_size=8, shuffle=True)
 
 experimental_dataset = ExperimentalDataset(experimental_data_dict, transform=transform)
-experimental_loader = DataLoader(experimental_dataset, batch_size=16, shuffle=True)
+experimental_loader = DataLoader(experimental_dataset, batch_size=8, shuffle=True)
 # %%
 # Function to visualize a batch of images
 import torchvision 
@@ -518,27 +518,37 @@ for epoch in range(num_epochs):
         sample_A = next(iter(loader_A))[0].to(device)
         sample_B = next(iter(loader_B))[0].to(device)
 
+        # Add batch dimension
+        sample_A = sample_A.unsqueeze(0)
+        sample_B = sample_B.unsqueeze(0)
+
         # Generate images
         fake_B = G_AB(sample_A)
         fake_A = G_BA(sample_B)
 
-        # Move images to CPU for plotting
-        sample_A, sample_B, fake_A, fake_B = sample_A.cpu(), sample_B.cpu(), fake_A.cpu(), fake_B.cpu()
+        # Move images to CPU for plotting and remove batch dimension
+        sample_A, sample_B, fake_A, fake_B = sample_A.squeeze(0).cpu(), sample_B.squeeze(0).cpu(), fake_A.squeeze(0).cpu(), fake_B.squeeze(0).cpu()
 
         # Plotting
         plt.figure(figsize=(10, 4))
+
+        # Plot only the image part of the tensors (assuming it's the first channel)
         plt.subplot(1, 4, 1)
         plt.title("Real A")
-        plt.imshow(sample_A[0].permute(1, 2, 0))  # Assuming images are in CHW format
+        plt.imshow(sample_A[0], cmap='gray')  # Grayscale image from the first channel
+
         plt.subplot(1, 4, 2)
         plt.title("Fake B")
-        plt.imshow(fake_B[0].permute(1, 2, 0))
+        plt.imshow(fake_B[0], cmap='gray')  # Grayscale image from the first channel
+
         plt.subplot(1, 4, 3)
         plt.title("Real B")
-        plt.imshow(sample_B[0].permute(1, 2, 0))
+        plt.imshow(sample_B[0], cmap='gray')  # Grayscale image from the first channel
+
         plt.subplot(1, 4, 4)
         plt.title("Fake A")
-        plt.imshow(fake_A[0].permute(1, 2, 0))
+        plt.imshow(fake_A[0], cmap='gray')  # Grayscale image from the first channel
+
         plt.show()
 # %%
 # %%
