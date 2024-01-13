@@ -142,13 +142,14 @@ class RandomRotation90:
 
 class MinMaxNormalize(object):
     def __init__(self):
+        # Additional initialization can be added here if necessary
         pass
 
     def __call__(self, img_tensor):
+        # img_tensor is expected to be a PyTorch tensor
 
-        img_tensor = img_tensor - img_tensor.min()
-
-        img_tensor = img_tensor / (2**32)
+        # Normalize: set min to 0
+        img_tensor = (img_tensor - img_tensor.min() / (img_tensor.max() - img_tensor.min()))
 
         return img_tensor
 
@@ -207,6 +208,7 @@ simulated_loader = DataLoader(simulated_dataset, batch_size=8, shuffle=True)
 
 experimental_dataset = ExperimentalDataset(experimental_data_dict, transform=transform)
 experimental_loader = DataLoader(experimental_dataset, batch_size=8, shuffle=True)
+
 # %%
 import torch
 import torch.nn as nn
@@ -251,7 +253,7 @@ class Generator(nn.Module):
         self.conv6 = conv_block(256, 128)
 
         self.upconv7 = upconv_block(128, 64)
-        self.conv7 = conv_block(128,64)
+        self.conv7 = conv_block(128, 64)
 
         self.output = nn.Sequential(
             nn.Conv2d(64, 1, kernel_size=1),
@@ -296,14 +298,17 @@ class Discriminator(nn.Module):
                 layers.append(nn.BatchNorm2d(out_channels))
             layers.append(nn.LeakyReLU(0.2, inplace=True))
             return nn.Sequential(*layers)
-        
-        input_channels = 2  # for grayscale + pixel size channels
-        
+
+        # Specify the input and output channels
+        input_channels = 2  # for grayscale images
+
+        # Discriminator architecture
         self.conv1 = discriminator_block(input_channels, 64, normalization=False)
         self.conv2 = discriminator_block(64, 128)
         self.conv3 = discriminator_block(128, 256)
         self.conv4 = discriminator_block(256, 512)
 
+        # The following padding is used to adjust the shape of the output
         self.pad = nn.ZeroPad2d((1, 0, 1, 0))
         self.final_conv = nn.Conv2d(512, 1, kernel_size=4, padding=1)
 
@@ -317,15 +322,20 @@ class Discriminator(nn.Module):
         x = self.final_conv(x)
         return x
     
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+G_AB = Generator()  # Translates images from domain A to domain B
+G_BA = Generator()  # Translates images from domain B to domain A
+D_A = Discriminator()  # Discriminator for domain A
+D_B = Discriminator()  # Discriminator for domain B
+
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 G_AB = Generator().to(device)
 G_BA = Generator().to(device)
 D_A = Discriminator().to(device)
 D_B = Discriminator().to(device)
-
 # Adversarial loss
-criterion_GAN = nn.BCELoss()
+criterion_GAN = nn.MSELoss()
 
 # Cycle consistency loss
 criterion_cycle = nn.L1Loss()
@@ -334,14 +344,14 @@ criterion_cycle = nn.L1Loss()
 criterion_identity = nn.L1Loss()
 
 optimizer_G = torch.optim.Adam(
-    list(G_AB.parameters()) + list(G_BA.parameters()), lr=0.0001)
-optimizer_D_A = torch.optim.Adam(D_A.parameters(), lr=0.0001)
-optimizer_D_B = torch.optim.Adam(D_B.parameters(), lr=0.0001)
+    list(G_AB.parameters()) + list(G_BA.parameters()), lr=0.0002, betas=(0.5, 0.999))
+optimizer_D_A = torch.optim.Adam(D_A.parameters(), lr=0.0002, betas=(0.5, 0.999))
+optimizer_D_B = torch.optim.Adam(D_B.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
 loader_A = experimental_loader
 loader_B = simulated_loader
-lambda_cycle = 10
-lambda_id = 0.5
+lambda_cycle = 5
+lambda_id = 2
 
 losses_G = []
 losses_D_A = []
@@ -357,29 +367,29 @@ for epoch in range(num_epochs):
 
     loader_A = tqdm(experimental_loader, total=len(experimental_loader))
     loader_B = tqdm(simulated_loader, total=len(simulated_loader))
-    
     for real_A, real_B in zip(loader_A, loader_B):
 
         real_A = real_A.to(device)
         real_B = real_B.to(device)
+        # real_A and real_B are batches from the two domains
 
+        # Generators G_AB and G_BA
         optimizer_G.zero_grad()
 
         # Identity loss
         loss_id_A = criterion_identity(G_BA(real_A), real_A)
         loss_id_B = criterion_identity(G_AB(real_B), real_B)
-        
-        # G_AB_loss
-        fake_B = G_AB(real_A)
-        D_B_fake_B = D_B(fake_B)
-        target_tensor = torch.ones_like(D_B_fake_B).to(device)
-        loss_G_AB = criterion_GAN(D_B_fake_B, target_tensor)
 
-        # G_BA_loss
+        # GAN loss
+        fake_B = G_AB(real_A)
+        discriminator_output = D_B(fake_B)
+        target_tensor = torch.ones_like(discriminator_output).to(device)  
+        loss_GAN_AB = criterion_GAN(discriminator_output, target_tensor)
+
         fake_A = G_BA(real_B)
-        D_A_fake_A = D_A(fake_A)
-        target_tensor = torch.ones_like(D_A_fake_A).to(device)
-        loss_G_BA = criterion_GAN(D_A_fake_A, target_tensor)
+        discriminator_output = D_A(fake_A)
+        target_tensor = torch.ones_like(discriminator_output).to(device)
+        loss_GAN_BA = criterion_GAN(discriminator_output, target_tensor)
 
         # Cycle loss
         recovered_A = G_BA(fake_B)
@@ -387,8 +397,9 @@ for epoch in range(num_epochs):
         recovered_B = G_AB(fake_A)
         loss_cycle_B = criterion_cycle(recovered_B, real_B)
 
-        # Total G loss
-        loss_G = loss_G_AB + loss_G_BA + lambda_cycle * (loss_cycle_A + loss_cycle_B) + lambda_id * (loss_id_A + loss_id_B)
+        # Total loss
+        #print(loss_GAN_AB.item(), loss_GAN_BA.item(), loss_cycle_A.item(), loss_cycle_B.item(), loss_id_A.item(), loss_id_B.item(), lambda_cycle*(loss_cycle_A.item() + loss_cycle_B.item()), lambda_id*(loss_id_A.item() + loss_id_B.item()))
+        loss_G = loss_GAN_AB + loss_GAN_BA + lambda_cycle * (loss_cycle_A + loss_cycle_B) + lambda_id * (loss_id_A + loss_id_B)
         loss_G.backward()
         optimizer_G.step()
 
@@ -411,13 +422,14 @@ for epoch in range(num_epochs):
         optimizer_D_B.zero_grad()
 
         real_B_output = D_B(real_B)
-        target_real_B = torch.ones_like(real_B_output).to(device) 
+        target_real_B = torch.ones_like(real_B_output).to(device)
         loss_real_B = criterion_GAN(real_B_output, target_real_B)
 
-        fake_B_output = D_B(fake_B.detach())  # Detach fake data to prevent gradients from flowing back to the generator
+        fake_B_output = D_B(fake_B.detach())
         target_fake_B = torch.zeros_like(fake_B_output).to(device) 
         loss_fake_B = criterion_GAN(fake_B_output, target_fake_B)
 
+        # Combine the losses
         loss_D_B = (loss_real_B + loss_fake_B) / 2
         loss_D_B.backward()
         optimizer_D_B.step()
@@ -475,5 +487,4 @@ for epoch in range(num_epochs):
         plt.imshow(fake_A[0], cmap='gray')  # Grayscale image from the first channel
 
         plt.show()
-# %%
 # %%
