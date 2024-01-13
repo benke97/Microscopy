@@ -142,16 +142,12 @@ class RandomRotation90:
 
 class MinMaxNormalize(object):
     def __init__(self):
-        # Additional initialization can be added here if necessary
         pass
 
     def __call__(self, img_tensor):
-        # img_tensor is expected to be a PyTorch tensor
 
-        # Normalize: set min to 0
         img_tensor = img_tensor - img_tensor.min()
 
-        # Scale by 2^32
         img_tensor = img_tensor / (2**32)
 
         return img_tensor
@@ -212,33 +208,6 @@ simulated_loader = DataLoader(simulated_dataset, batch_size=8, shuffle=True)
 experimental_dataset = ExperimentalDataset(experimental_data_dict, transform=transform)
 experimental_loader = DataLoader(experimental_dataset, batch_size=8, shuffle=True)
 # %%
-# Function to visualize a batch of images
-import torchvision 
-def show_images(images, nmax=64):
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.set_xticks([]); ax.set_yticks([])
-    ax.imshow(np.transpose(torchvision.utils.make_grid(images[:nmax], nrow=8, padding=2, normalize=True).cpu(),(1,2,0)))
-
-# Inspecting the first batch in the DataLoader
-for simulated_images, pixel_sizes in simulated_loader:
-    print("Batch size:", simulated_images.size(0))
-    print("Image shape:", simulated_images.size())
-    print("Pixel sizes:", pixel_sizes.size())
-
-    # Show images in the batch
-    show_images(simulated_images)
-    break  # Remove this break if you want to go through all batches
-
-for experimental_images, pixel_sizes in experimental_loader:
-    print("Batch size:", experimental_images.size(0))
-    print("Image shape:", experimental_images.size())
-    print("Pixel sizes:", pixel_sizes.size())
-
-    # Show images in the batch
-    show_images(experimental_images)
-    break  # Remove this break if you want to go through all batches
-
-# %%
 import torch
 import torch.nn as nn
 
@@ -264,28 +233,28 @@ class Generator(nn.Module):
         )
 
         # Downsampling
-        self.conv1 = conv_block(2, 128)
+        self.conv1 = conv_block(2, 64)
         self.pool1 = nn.MaxPool2d(2, 2)
-        self.conv2 = conv_block(128, 256)
+        self.conv2 = conv_block(64, 128)
         self.pool2 = nn.MaxPool2d(2, 2)
-        self.conv3 = conv_block(256, 512)
+        self.conv3 = conv_block(128, 256)
         self.pool3 = nn.MaxPool2d(2, 2)
 
         # Bridge
-        self.conv4 = conv_block(512, 1024)
+        self.conv4 = conv_block(256, 512)
 
         # Upsampling
-        self.upconv5 = upconv_block(1024, 512)
-        self.conv5 = conv_block(1024, 512)
+        self.upconv5 = upconv_block(512, 256)
+        self.conv5 = conv_block(512, 256)
 
-        self.upconv6 = upconv_block(512, 256)
-        self.conv6 = conv_block(512, 256)
+        self.upconv6 = upconv_block(256, 128)
+        self.conv6 = conv_block(256, 128)
 
-        self.upconv7 = upconv_block(256, 128)
-        self.conv7 = conv_block(256,128)
+        self.upconv7 = upconv_block(128, 64)
+        self.conv7 = conv_block(128,64)
 
         self.output = nn.Sequential(
-            nn.Conv2d(128, 1, kernel_size=1),
+            nn.Conv2d(64, 1, kernel_size=1),
             nn.Sigmoid()
         )
 
@@ -327,17 +296,14 @@ class Discriminator(nn.Module):
                 layers.append(nn.BatchNorm2d(out_channels))
             layers.append(nn.LeakyReLU(0.2, inplace=True))
             return nn.Sequential(*layers)
-
-        # Specify the input and output channels
-        input_channels = 2  # for grayscale images
-
-        # Discriminator architecture
+        
+        input_channels = 2  # for grayscale + pixel size channels
+        
         self.conv1 = discriminator_block(input_channels, 64, normalization=False)
         self.conv2 = discriminator_block(64, 128)
         self.conv3 = discriminator_block(128, 256)
         self.conv4 = discriminator_block(256, 512)
 
-        # The following padding is used to adjust the shape of the output
         self.pad = nn.ZeroPad2d((1, 0, 1, 0))
         self.final_conv = nn.Conv2d(512, 1, kernel_size=4, padding=1)
 
@@ -351,20 +317,15 @@ class Discriminator(nn.Module):
         x = self.final_conv(x)
         return x
     
-
-G_AB = Generator()  # Translates images from domain A to domain B
-G_BA = Generator()  # Translates images from domain B to domain A
-D_A = Discriminator()  # Discriminator for domain A
-D_B = Discriminator()  # Discriminator for domain B
-
-
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 G_AB = Generator().to(device)
 G_BA = Generator().to(device)
 D_A = Discriminator().to(device)
 D_B = Discriminator().to(device)
+
 # Adversarial loss
-criterion_GAN = nn.MSELoss()
+criterion_GAN = nn.BCELoss()
 
 # Cycle consistency loss
 criterion_cycle = nn.L1Loss()
@@ -373,9 +334,9 @@ criterion_cycle = nn.L1Loss()
 criterion_identity = nn.L1Loss()
 
 optimizer_G = torch.optim.Adam(
-    list(G_AB.parameters()) + list(G_BA.parameters()), lr=0.0002, betas=(0.5, 0.999))
-optimizer_D_A = torch.optim.Adam(D_A.parameters(), lr=0.0002, betas=(0.5, 0.999))
-optimizer_D_B = torch.optim.Adam(D_B.parameters(), lr=0.0002, betas=(0.5, 0.999))
+    list(G_AB.parameters()) + list(G_BA.parameters()), lr=0.0001)
+optimizer_D_A = torch.optim.Adam(D_A.parameters(), lr=0.0001)
+optimizer_D_B = torch.optim.Adam(D_B.parameters(), lr=0.0001)
 
 loader_A = experimental_loader
 loader_B = simulated_loader
@@ -396,76 +357,44 @@ for epoch in range(num_epochs):
 
     loader_A = tqdm(experimental_loader, total=len(experimental_loader))
     loader_B = tqdm(simulated_loader, total=len(simulated_loader))
+    
     for real_A, real_B in zip(loader_A, loader_B):
 
         real_A = real_A.to(device)
         real_B = real_B.to(device)
-        # real_A and real_B are batches from the two domains
 
-        # Generators G_AB and G_BA
         optimizer_G.zero_grad()
 
         # Identity loss
         loss_id_A = criterion_identity(G_BA(real_A), real_A)
-
         loss_id_B = criterion_identity(G_AB(real_B), real_B)
-
-
         
-        # GAN loss
-
+        # G_AB_loss
         fake_B = G_AB(real_A)
+        D_B_fake_B = D_B(fake_B)
+        target_tensor = torch.ones_like(D_B_fake_B).to(device)
+        loss_G_AB = criterion_GAN(D_B_fake_B, target_tensor)
 
-
-        discriminator_output = D_B(fake_B)
-
-        
-        target_tensor = torch.ones_like(discriminator_output).to(device)
-
-        
-        loss_GAN_AB = criterion_GAN(discriminator_output, target_tensor)
-
+        # G_BA_loss
         fake_A = G_BA(real_B)
-
-        
-        discriminator_output = D_A(fake_A)
-
-        
-        target_tensor = torch.ones_like(discriminator_output).to(device)
-
-
-        loss_GAN_BA = criterion_GAN(discriminator_output, target_tensor)
-
+        D_A_fake_A = D_A(fake_A)
+        target_tensor = torch.ones_like(D_A_fake_A).to(device)
+        loss_G_BA = criterion_GAN(D_A_fake_A, target_tensor)
 
         # Cycle loss
-
-
-
         recovered_A = G_BA(fake_B)
-
-
-
         loss_cycle_A = criterion_cycle(recovered_A, real_A)
-
-
         recovered_B = G_AB(fake_A)
-
         loss_cycle_B = criterion_cycle(recovered_B, real_B)
 
-
-        
-        # Total loss
-
-
-        loss_G = loss_GAN_AB + loss_GAN_BA + lambda_cycle * (loss_cycle_A + loss_cycle_B) + lambda_id * (loss_id_A + loss_id_B)
-
+        # Total G loss
+        loss_G = loss_G_AB + loss_G_BA + lambda_cycle * (loss_cycle_A + loss_cycle_B) + lambda_id * (loss_id_A + loss_id_B)
         loss_G.backward()
-
-
         optimizer_G.step()
 
         # Discriminator A
         optimizer_D_A.zero_grad()
+
         real_A_output = D_A(real_A)
         target_real = torch.ones_like(real_A_output).to(device)
         loss_real = criterion_GAN(real_A_output, target_real)
@@ -477,20 +406,18 @@ for epoch in range(num_epochs):
         loss_D_A = (loss_real + loss_fake) / 2
         loss_D_A.backward()
         optimizer_D_A.step()
+
         # Discriminator B
         optimizer_D_B.zero_grad()
 
-        # Loss for real images
         real_B_output = D_B(real_B)
-        target_real_B = torch.ones_like(real_B_output).to(device)  # Ensure the target tensor matches the output shape
+        target_real_B = torch.ones_like(real_B_output).to(device) 
         loss_real_B = criterion_GAN(real_B_output, target_real_B)
 
-        # Loss for fake images
         fake_B_output = D_B(fake_B.detach())  # Detach fake data to prevent gradients from flowing back to the generator
-        target_fake_B = torch.zeros_like(fake_B_output).to(device)  # Match the shape with the discriminator output
+        target_fake_B = torch.zeros_like(fake_B_output).to(device) 
         loss_fake_B = criterion_GAN(fake_B_output, target_fake_B)
 
-        # Combine the losses
         loss_D_B = (loss_real_B + loss_fake_B) / 2
         loss_D_B.backward()
         optimizer_D_B.step()
@@ -499,12 +426,10 @@ for epoch in range(num_epochs):
         epoch_loss_D_A += loss_D_A.item()
         epoch_loss_D_B += loss_D_B.item()
 
-    # Average the losses over the epoch
     avg_loss_G = epoch_loss_G / len(loader_A)
     avg_loss_D_A = epoch_loss_D_A / len(loader_A)
     avg_loss_D_B = epoch_loss_D_B / len(loader_A)
 
-    # Store average losses for visualization later
     losses_G.append(avg_loss_G)
     losses_D_A.append(avg_loss_D_A)
     losses_D_B.append(avg_loss_D_B)
