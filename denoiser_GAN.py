@@ -16,10 +16,14 @@ import time
 from torchvision import transforms
 from torchvision.transforms import functional as TF
 from tqdm import tqdm
+import hyperspy.api as hs
+import mrcfile
+import torch
+import torch.nn as nn
 #%%
 def is_valid_file(file_name):
     """Check if the file name matches the pattern i_HAADF.tif where i is in the specified range."""
-    pattern = re.compile(r"(\d+)_HAADF\.tif")
+    pattern = re.compile(r"(\d+)_HAADF\.mrc")
     match = pattern.match(file_name)
 
     if not match:
@@ -30,25 +34,42 @@ def is_valid_file(file_name):
 
 def extract_number(file_name):
     """Extract the numerical part from the file name."""
-    match = re.match(r"(\d+)_HAADF\.tif", file_name)
+    match = re.match(r"(\d+)_HAADF\.mrc", file_name)
     return int(match.group(1)) if match else None
 
 # Directory containing your files
-directory = "data/simulated"
+directory = "data/mrc"
 
 # List all image files and sort them
-image_files = sorted([f for f in os.listdir(directory) if re.match(r"(\d+)_HAADF\.tif", f)], key=extract_number)
-
+image_files = sorted([f for f in os.listdir(directory) if re.match(r"(\d+)_HAADF\.mrc", f)], key=extract_number)
 # Initialize an empty DataFrame for all data
 data_dict = {}
+#%%
+global_min_sim = float('inf')
+global_max_sim = float('-inf')
+for image_file in image_files:
+    image_path = os.path.join(directory, image_file)
+    with mrcfile.open(image_path, permissive=True) as mrc:
+        image_data = mrc.data
+        global_min_sim = min(global_min_sim, image_data.min())
+        global_max_sim = max(global_max_sim, image_data.max())
+# Create fixed bin edges based on the global range
+bins = np.linspace(global_min_sim, global_max_sim, 100)
 
+mean_histogram = np.zeros(len(bins) - 1)
 # Process each image and corresponding .pkl file
 for image_file in image_files:
     # Load image
-    print(image_file)
     image_path = os.path.join(directory, image_file)
-    image = Image.open(image_path).convert('F')
-    print(image.mode)
+    # Read mrc
+    with mrcfile.open(image_path, permissive=True) as mrc:
+        image_data = mrc.data
+
+    hist, _ = np.histogram(image_data, bins=bins)
+    #convert image_data to PIL image
+    image = Image.fromarray(image_data)
+    print("dtype sim", image_data.dtype)
+    mean_histogram += hist
     # Extract number from image file name to find corresponding .pkl file
     num = extract_number(image_file)
     pkl_file = os.path.join(directory, f"structure_{num}.pkl")
@@ -57,6 +78,12 @@ for image_file in image_files:
         df = pkl.load(file)
     # Add the image to the dataframe
     data_dict[num] = {'dataframe': df, 'image': image, 'pixel_size': df['pixel_size'].iloc[0]}
+
+mean_histogram /= len(image_files)
+plt.figure()
+plt.bar(bins[:-1], mean_histogram, width=np.diff(bins), edgecolor='black')
+plt.show()
+print("global_min, global_max", global_min_sim, global_max_sim)
 # %%
 # go through all the dataframes and plot a histogram of the pixel sizes
 pixel_sizes = [data['pixel_size'] for data in data_dict.values()]
@@ -85,6 +112,8 @@ plt.title('Count of Pixel Sizes Grouped by Closest Bin Center')
 plt.xticks(bin_centers)
 plt.show()
 # %%
+#Experimental set
+
 bin_dir_map = {0.02: "20 pm", 0.025: "25 pm", 0.03: "30 pm", 0.035: "35 pm"}
 for i in range(len(bin_centers)):
     j = 0
@@ -105,6 +134,7 @@ for i in range(len(bin_centers)):
             #read tif stack and save in same folder as single frames
 
 print(counts)
+
 selected_images_dict = {}
 
 for count, bin_dir in zip(counts, bin_dir_map.values()):
@@ -115,19 +145,48 @@ for count, bin_dir in zip(counts, bin_dir_map.values()):
     selected_files = random.sample(tif_files, min(count, len(tif_files)))
 
     selected_images_dict[bin_dir] = [os.path.join(dir_path, f) for f in selected_files]
-print(len(selected_images_dict.get("25 pm")))
-# reshape into dict with keys "pixel size", "image_path"
+
+bin_dir_map_2 = {"20 pm": 0.02, "25 pm": 0.025, "30 pm": 0.03, "35 pm": 0.035}
 experimental_data_dict = {}
 counter = 0
+# Determine global min and max pixel values
+global_min_exp = float('inf')
+global_max_exp = float('-inf')
 for bin_dir, image_paths in selected_images_dict.items():
     for image_path in image_paths:
-        bin_dir_map_2 = {"20 pm": 0.02, "25 pm": 0.025, "30 pm": 0.03, "35 pm": 0.035}
+        image = Image.open(image_path).convert('F')
+        image_data = np.array(image)
+        global_min_exp = min(global_min_exp, image_data.min())
+        global_max_exp = max(global_max_exp, image_data.max())
+
+# Create fixed bin edges based on the global range
+bins = np.linspace(global_min_exp, global_max_exp, 101)
+
+mean_histogram = np.zeros(len(bins) - 1)
+# Process each image
+for bin_dir, image_paths in selected_images_dict.items():
+    for image_path in image_paths:
         pixel_size = bin_dir_map_2[bin_dir]
         image = Image.open(image_path).convert('F')
-        experimental_data_dict[counter] = {'dataframe': None, 'image': image, 'pixel_size': pixel_size}
+        image_data = np.array(image)
+        print("dtype exp", image_data.dtype)
+        # Calculate histogram with fixed bins
+        hist, _ = np.histogram(image_data, bins=bins)
+        mean_histogram += hist
+
+        # Store data in the dictionary
+        experimental_data_dict[counter] = {
+            'dataframe': None,  # Assuming this is to be filled later
+            'image': image,
+            'pixel_size': pixel_size,
+        }
         counter += 1
 
-# %%
+mean_histogram /= counter
+plt.figure()
+plt.bar(bins[:-1], mean_histogram, width=np.diff(bins), edgecolor='black')
+plt.show()
+    # %%
 #print(experimental_data_dict[0])
 #print(data_dict[0])
 class RandomRotation90:
@@ -141,17 +200,18 @@ class RandomRotation90:
         return TF.rotate(x, angle)
 
 class MinMaxNormalize(object):
-    def __init__(self):
-        # Additional initialization can be added here if necessary
-        pass
+    def __init__(self, global_min, global_max):
+        
+        self.global_min = global_min
+        self.global_max = global_max
 
     def __call__(self, img_tensor):
-        # img_tensor is expected to be a PyTorch tensor
+        
+        normalized_tensor = (img_tensor - self.global_min) / (self.global_max - self.global_min)
 
-        # Normalize: set min to 0
-        img_tensor = ((img_tensor - img_tensor.min()) / (img_tensor.max() - img_tensor.min()))
+        normalized_tensor = normalized_tensor.clamp(0, 1)
 
-        return img_tensor
+        return normalized_tensor
 
 class SimulatedDataset(Dataset):
     def __init__(self, data_dict, transform=None):
@@ -195,18 +255,26 @@ class ExperimentalDataset(Dataset):
         return torch.cat((experimental_image, pixel_size_tensor), dim=0)
 
 
-transform = transforms.Compose([
+transform_sim = transforms.Compose([
     RandomRotation90(),
     transforms.RandomHorizontalFlip(),
     transforms.RandomVerticalFlip(),
     transforms.ToTensor(),
-    MinMaxNormalize()
+    MinMaxNormalize(global_min_sim, global_max_sim)
 ])
 
-simulated_dataset = SimulatedDataset(data_dict, transform=transform)
+transform_exp = transforms.Compose([
+    RandomRotation90(),
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomVerticalFlip(),
+    transforms.ToTensor(),
+    MinMaxNormalize(global_min_exp, global_max_exp)
+])
+
+simulated_dataset = SimulatedDataset(data_dict, transform=transform_sim)
 simulated_loader = DataLoader(simulated_dataset, batch_size=4, shuffle=True)
 
-experimental_dataset = ExperimentalDataset(experimental_data_dict, transform=transform)
+experimental_dataset = ExperimentalDataset(experimental_data_dict, transform=transform_exp)
 experimental_loader = DataLoader(experimental_dataset, batch_size=4, shuffle=True)
 
 # %%
@@ -320,7 +388,7 @@ class Discriminator(nn.Module):
         x = self.conv4(x)
         x = self.pad(x)
         x = self.final_conv(x)
-        return x
+        return torch.sigmoid(x)
     
 
 G_AB = Generator()  # Translates images from domain A to domain B
@@ -335,7 +403,7 @@ G_BA = Generator().to(device)
 D_A = Discriminator().to(device)
 D_B = Discriminator().to(device)
 # Adversarial loss
-criterion_GAN = nn.MSELoss()
+criterion_GAN = nn.BCELoss()
 
 # Cycle consistency loss
 criterion_cycle = nn.L1Loss()
